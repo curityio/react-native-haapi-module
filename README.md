@@ -5,10 +5,6 @@
 
 `$ npm install @curity/haapi-react-native-module --save`
 
-### Mostly automatic installation
-
-`$ react-native link @curity/haapi-react-native-module`
-
 ## Usage
 ```javascript
 import {NativeModules} from "react-native";
