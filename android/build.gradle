@@ -1,4 +1,3 @@
-
 buildscript {
     repositories {
         google()
@@ -6,29 +5,23 @@ buildscript {
     }
 
     dependencies {
-        classpath("com.android.tools.build:gradle")
-        classpath("com.facebook.react:react-native-gradle-plugin")
+        classpath "com.android.tools.build:gradle:8.2.1"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.21"
     }
 }
 
 apply plugin: 'com.android.library'
-
-    ext {
-    }
+apply plugin: "kotlin-android"
 
 android {
-
     defaultConfig {
-        minSdkVersion = 26
-        compileSdkVersion = 34
-        targetSdkVersion = 34
+        compileSdkVersion 34
+        targetSdkVersion 34
+        minSdkVersion 26
         buildToolsVersion = "34.0.0"
-        buildToolsVersion "23.0.1"
-        ndkVersion = "25.1.8937393"
-        kotlinVersion = "1.8.0"
-        versionCode 1
-        versionName "1.0"
     }
+
+    namespace "io.curity.react"
 
     lintOptions {
         abortOnError false
@@ -37,11 +30,12 @@ android {
 
 repositories {
     mavenCentral()
+    google()
 }
 
 dependencies {
-    implementation 'com.facebook.react:react-native:+'
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.21"
     implementation 'se.curity.identityserver:identityserver.haapi.android.sdk:3.4.0'
-    implementation 'com.google.code.gson:gson:2.9.1'
+    implementation 'com.google.code.gson:gson:2.10'
 }
   
