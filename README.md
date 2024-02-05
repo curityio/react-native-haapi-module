@@ -33,7 +33,7 @@ export default HaapiModule;
 
 ## Example implementation
 
-See https://github.com/curityio/haapi-react-native-example for example implementation
+See https://github.com/curityio/react-native-haapi-example for example implementation
 
 ## Known limitations
 * Selfsigned certificates needs to be imported to trust store
