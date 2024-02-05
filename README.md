@@ -1,9 +1,9 @@
 
-# react-native-haapi-react-native-module
+# react-native-haapi-module
 
 ## Getting started
 
-`$ npm install @curity/haapi-react-native-module --save`
+`$ npm install @curity/react-native-haapi-module --save`
 
 ## Usage
 ```javascript
