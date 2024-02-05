@@ -1,7 +1,7 @@
 
 {
   "name": "@curity/react-native-haapi-module",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "React Native Modules to use with Hypermedia Authentication API of the Curity Identity Server",
   "main": "index.js",
   "scripts": {
@@ -13,6 +13,6 @@
   "author": "Curity",
   "license": "Apache",
   "peerDependencies": {
-    "react-native": "^0.72.0"
+    "react-native": ">=0.72.0"
   }
 }
