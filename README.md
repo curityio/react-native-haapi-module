@@ -24,6 +24,8 @@ const haapiConfiguration = {
     "registrationEndpointUri": "https://login.example.com/oauth/registration",
     "fallback_template_id": "react-native-fallback",
     "registration_secret": "my-good-secret"
+    "validateTlsCertificate": true,
+    "acrValues": ""
 }
 
 HaapiModule.load(haapiConfiguration)
