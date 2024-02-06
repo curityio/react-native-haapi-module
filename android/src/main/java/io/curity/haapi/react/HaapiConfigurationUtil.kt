@@ -36,7 +36,8 @@ object HaapiConfigurationUtil {
         minTokenTtl = Duration.ofSeconds(300L),
         authorizationParametersProvider = {
             OAuthAuthorizationParameters(
-                scope = asStringOrDefault(conf, "scope", "").split(" ")
+                scope = asStringOrDefault(conf, "scope", "").split(" "),
+                acrValues = asStringOrDefault(conf, "acrValues", "").split(" "),
             )
         },
         httpHeadersProvider = {
@@ -46,7 +47,7 @@ object HaapiConfigurationUtil {
             val validateCertificate = conf["validateTlsCertificate"] as? Boolean? ?: true
             url.openConnection().apply {
                 connectTimeout = 8000
-                if(!validateCertificate) {
+                if (!validateCertificate) {
                     disableSslTrustVerification()
                 }
             } as HttpURLConnection
