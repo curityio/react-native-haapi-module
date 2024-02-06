@@ -86,7 +86,7 @@ object HaapiConfigurationUtil {
 
         override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) = Unit
 
-        override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+        override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
     }
 
     private fun URLConnection.disableSslTrustVerification(): URLConnection {
