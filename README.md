@@ -38,6 +38,4 @@ export default HaapiModule;
 See https://github.com/curityio/react-native-haapi-example for example implementation
 
 ## Known limitations
-* Selfsigned certificates needs to be imported to trust store
-* No Extra authorization parameters like `acr`
 * Only Android yet
