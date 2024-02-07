@@ -134,6 +134,22 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
         submitModel(form.model, parameters.toHashMap())
     }
 
+    /**
+     * Needs to be here to suppress warnings from react-native
+     */
+    @ReactMethod
+    fun addListener(eventName: String) {
+
+    }
+
+    /**
+     * Needs to be here to suppress warnings from react-native
+     */
+    @ReactMethod
+    fun removeListeners(count: Int) {
+
+    }
+
     private fun submitModel(model: FormActionModel, parameters: Map<String, Any>) {
 
         Log.d(TAG, "Submitting form $model}")
