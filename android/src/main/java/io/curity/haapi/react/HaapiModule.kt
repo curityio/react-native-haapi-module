@@ -128,10 +128,10 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
 
 
     @ReactMethod
-    fun submitForm(action: ReadableMap, parameters: ReadableMap,promise: Promise) {
+    fun submitForm(action: ReadableMap, parameters: ReadableMap, promise: Promise) {
         val form = getAction(action, _haapiResponse as HaapiRepresentation)
             ?: throw RuntimeException("No form to submit")
-        submitModel(form.model, parameters.toHashMap(),promise)
+        submitModel(form.model, parameters.toHashMap(), promise)
     }
 
     /**
