@@ -69,11 +69,11 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
     }
 
     @ReactMethod
-    fun start() {
+    fun start(promise: Promise) {
 
         Log.d(TAG, "Start was called")
         try {
-            withHaapiManager { haapiManager, context ->
+            withHaapiManager(promise) { haapiManager, context ->
                 haapiManager.start(context)
             }
         } catch (e: Exception) {
@@ -118,20 +118,20 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
     }
 
     @ReactMethod
-    fun navigate(linkMap: ReadableMap) {
+    fun navigate(linkMap: ReadableMap, promise: Promise) {
         val linkJson = _gson.toJson(linkMap.toHashMap())
         val link = _gson.fromJson(linkJson, Link::class.java)
-        withHaapiManager { haapiManager, context ->
+        withHaapiManager(promise) { haapiManager, context ->
             haapiManager.followLink(link, context)
         }
     }
 
 
     @ReactMethod
-    fun submitForm(action: ReadableMap, parameters: ReadableMap) {
+    fun submitForm(action: ReadableMap, parameters: ReadableMap, promise: Promise) {
         val form = getAction(action, _haapiResponse as HaapiRepresentation)
             ?: throw RuntimeException("No form to submit")
-        submitModel(form.model, parameters.toHashMap())
+        submitModel(form.model, parameters.toHashMap(), promise)
     }
 
     /**
@@ -150,10 +150,10 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
 
     }
 
-    private fun submitModel(model: FormActionModel, parameters: Map<String, Any>) {
+    private fun submitModel(model: FormActionModel, parameters: Map<String, Any>, promise: Promise) {
 
         Log.d(TAG, "Submitting form $model}")
-        withHaapiManager { haapiManager, _ ->
+        withHaapiManager(promise) { haapiManager, _ ->
             haapiManager.submitForm(model, parameters)
         }
     }
@@ -197,7 +197,7 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
         } else null
     }
 
-    private fun handleHaapiResponse(response: HaapiResponse) {
+    private fun handleHaapiResponse(response: HaapiResponse, promise: Promise) {
         when (response) {
             is HaapiRepresentation -> {
                 Log.d(TAG, "Updating reference to representation")
@@ -213,7 +213,7 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
                     )
 
                     is OAuthAuthorizationResponseStep -> handleCodeResponse(response)
-                    is PollingStep -> handlePollingStep(response)
+                    is PollingStep -> handlePollingStep(response, promise)
 
                     else -> if (response.type == RepresentationType.AUTHENTICATION_STEP) {
                         sendEvent(
@@ -249,14 +249,14 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
         Log.d(TAG, response.toJsonString())
     }
 
-    private fun handlePollingStep(pollingStep: PollingStep) {
+    private fun handlePollingStep(pollingStep: PollingStep, promise: Promise) {
         sendEvent("PollingStep", pollingStep.toJsonString())
         when (pollingStep.properties.status) {
             PollingStatus.PENDING -> sendEvent("PollingStepResult", pollingStep.toJsonString())
-            PollingStatus.FAILED -> submitModel(pollingStep.mainAction.model, emptyMap())
+            PollingStatus.FAILED -> submitModel(pollingStep.mainAction.model, emptyMap(), promise)
             PollingStatus.DONE -> {
                 sendEvent("StopPolling", "{}")
-                submitModel(pollingStep.mainAction.model, emptyMap())
+                submitModel(pollingStep.mainAction.model, emptyMap(), promise)
             }
         }
     }
@@ -282,18 +282,19 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
 
     }
 
-    private fun withHaapiManager(accessorRequest: suspend (manager: HaapiManager, context: CoroutineContext) -> HaapiResponse) {
+    private fun withHaapiManager(promise: Promise, accessorRequest: suspend (manager: HaapiManager, context: CoroutineContext) -> HaapiResponse) {
         _accessorRepository ?: handleNotInitialized()
 
         runBlocking {
             launch {
                 try {
                     val response = accessorRequest(_accessorRepository!!.accessor.haapiManager, this.coroutineContext)
-                    handleHaapiResponse(response)
+                    handleHaapiResponse(response, promise)
+                    promise.resolve(response.toJsonString())
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to make HAAPI request: ${e.message}")
                     sendErrorEvent(e)
-                    throw FailedHaapiRequestException(e.message ?: "Failed to make HAAPI request", e)
+                    promise.reject("Failed to make HAAPI request", e.message)
                 }
             }
         }
