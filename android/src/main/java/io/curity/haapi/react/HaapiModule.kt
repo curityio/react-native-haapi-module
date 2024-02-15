@@ -150,7 +150,7 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
 
     }
 
-    private fun submitModel(model: FormActionModel, parameters: Map<String, Any>,promise: Promise) {
+    private fun submitModel(model: FormActionModel, parameters: Map<String, Any>, promise: Promise) {
 
         Log.d(TAG, "Submitting form $model}")
         withHaapiManager(promise) { haapiManager, _ ->
