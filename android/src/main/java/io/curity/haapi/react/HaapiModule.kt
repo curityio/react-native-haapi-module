@@ -88,13 +88,13 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
         try {
             if (_tokenResponse != null && _tokenResponse!!.refreshToken != null) {
                 Log.d(TAG, "Revoking refresh token")
-                withTokenManager { tokenManager, context ->
+                withTokenManager(promise) { tokenManager, context ->
                     tokenManager.revokeRefreshToken(_tokenResponse!!.refreshToken!!, context)
                     null
                 }
             } else if (_tokenResponse != null) {
                 Log.d(TAG, "Revoking access token")
-                withTokenManager { tokenManager, context ->
+                withTokenManager(promise){ tokenManager, context ->
                     tokenManager.revokeAccessToken(_tokenResponse!!.accessToken, context)
                     null
                 }
@@ -110,9 +110,9 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
     }
 
     @ReactMethod
-    fun refreshAccessToken(refreshToken: String) {
+    fun refreshAccessToken(refreshToken: String, promise: Promise) {
         Log.d(TAG, "Refreshing access token")
-        withTokenManager { tokenManager, coroutineContext ->
+        withTokenManager(promise) { tokenManager, coroutineContext ->
             tokenManager.refreshAccessToken(refreshToken, coroutineContext)
         }
     }
@@ -129,9 +129,7 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
 
     @ReactMethod
     fun submitForm(action: ReadableMap, parameters: ReadableMap, promise: Promise) {
-        val form = getAction(action, _haapiResponse as HaapiRepresentation)
-            ?: throw RuntimeException("No form to submit")
-        submitModel(form.model, parameters.toHashMap(), promise)
+        getAction(action, _haapiResponse as HaapiRepresentation, parameters,promise)
     }
 
     /**
@@ -158,8 +156,8 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
         }
     }
 
-    private fun handleCodeResponse(response: OAuthAuthorizationResponseStep) {
-        withTokenManager { manager, context ->
+    private fun handleCodeResponse(response: OAuthAuthorizationResponseStep, promise: Promise) {
+        withTokenManager(promise) { manager, context ->
             manager.fetchAccessToken(response.properties.code, context)
         }
     }
@@ -182,7 +180,7 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
         }
     }
 
-    private fun getAction(actionMap: ReadableMap, representation: HaapiRepresentation): Action.Form? {
+    private fun getAction(actionMap: ReadableMap, representation: HaapiRepresentation, parameters: ReadableMap, promise: Promise) {
         // TODO: Match more precise
         val submitKind = actionMap.getString("kind")
         Log.d(TAG, "Looking for form with kind $submitKind")
@@ -191,10 +189,7 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
         val action = representation.actions.find {
             it.toJsonObject().get("kind") == submitKind
         }
-
-        return if (action is Action.Form) {
-            action
-        } else null
+        (action as? Action.Form)?.let { submitModel(it.model, parameters.toHashMap(), promise) }
     }
 
     private fun handleHaapiResponse(response: HaapiResponse, promise: Promise) {
@@ -212,7 +207,7 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
                         "ContinueSameStep", response.toJsonString()
                     )
 
-                    is OAuthAuthorizationResponseStep -> handleCodeResponse(response)
+                    is OAuthAuthorizationResponseStep -> handleCodeResponse(response, promise)
                     is PollingStep -> handlePollingStep(response, promise)
 
                     else -> if (response.type == RepresentationType.AUTHENTICATION_STEP) {
@@ -261,8 +256,8 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
         }
     }
 
-    private fun withTokenManager(accessorRequest: suspend (tokenManager: OAuthTokenManager, coroutineContext: CoroutineContext) -> TokenResponse?) {
-        _accessorRepository ?: handleNotInitialized()
+    private fun withTokenManager(promise: Promise, accessorRequest: suspend (tokenManager: OAuthTokenManager, coroutineContext: CoroutineContext) -> TokenResponse?) {
+        _accessorRepository ?: handleNotInitialized(promise)
 
         runBlocking {
             launch {
@@ -271,11 +266,12 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
                         accessorRequest(_accessorRepository!!.accessor.oAuthTokenManager, this.coroutineContext)
                     if (response != null) {
                         handleTokenResponse(response)
+                        promise.resolve(response.toJsonString())
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to make token request: ${e.message}")
                     sendErrorEvent(e)
-                    throw FailedTokenManagerRequestException(e.message ?: "Failed to make token request", e)
+                    promise.reject("Failed to make token request", e.message)
                 }
             }
         }
@@ -283,7 +279,7 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
     }
 
     private fun withHaapiManager(promise: Promise, accessorRequest: suspend (manager: HaapiManager, context: CoroutineContext) -> HaapiResponse) {
-        _accessorRepository ?: handleNotInitialized()
+        _accessorRepository ?: handleNotInitialized(promise)
 
         runBlocking {
             launch {
@@ -300,16 +296,14 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
         }
     }
 
-    private fun handleNotInitialized() {
+    private fun handleNotInitialized(promise: Promise) {
         Log.w(
             TAG, "Accessor repository not initialized. " +
                     "Please run load() with configuration before accessing HAAPI functionality"
         )
         val exception = HaapiNotInitializedException()
-
         sendErrorEvent(exception)
-
-        throw exception
+        promise.reject("Haapi Module not initialized ",exception.message)
     }
 
 
