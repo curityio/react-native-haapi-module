@@ -26,7 +26,6 @@ class TrustAllCertsDelegate: NSObject, URLSessionDelegate {
         var credential: URLCredential?
         let serverTrust = challenge.protectionSpace.serverTrust
         if let serverTrust = serverTrust {
-            print("Trusting server")
             credential = URLCredential(trust: serverTrust)
         }
 
