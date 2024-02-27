@@ -139,13 +139,17 @@ class HaapiModule: RCTEventEmitter {
     @objc(logout:rejecter:)
     func logout(resolver resolve: RCTPromiseResolveBlock,
                 rejecter reject: RCTPromiseRejectBlock) {
-        haapiManager?.close()
-        oauthTokenManager = nil
+        closeManagers()
         resolve(true)
     }
     
     override static func requiresMainQueueSetup() -> Bool {
         return true
+    }
+    
+    private func closeManagers() {
+        haapiManager?.close()
+        oauthTokenManager = nil
     }
     
     private func processHaapiResult(_ haapiResult: HaapiResult, promise: Promise) {
@@ -274,6 +278,7 @@ class HaapiModule: RCTEventEmitter {
     private func rejectRequestWithError(description: String, promise: Promise) {
         sendHaapiError(description: description)
         promise.reject("HaapiError", description, nil)
+        closeManagers()
     }
     
     private func resolveRequest(eventType: EventType, body: Codable, promise: Promise) {
