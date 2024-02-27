@@ -16,6 +16,10 @@
     "ios",
     "!build",
     "!Pods",
+    "!.gradle",
+    "!.idea",
+    "!.xcode.env.local",
+    "!local.properties",
     "react-native-haapi-module.podspec"
   ],
   "author": "Curity",
