@@ -25,11 +25,24 @@ class HaapiModule: RCTEventEmitter {
     HaapiLogger.followUpTags = DriverFollowUpTag.allCases + SdkFollowUpTag.allCases
   }
   
-  override func supportedEvents() -> [String]! {
-    return ["HaapiError", "AuthenticationStep", "PollingStep", "ContinueSameStep", 
-            "TokenResponse","TokenResponseError", "SessionTimedOut", "AuthenticationSelectorStep",
-            "IncorrectCredentials", "ProblemRepresentation", "StopPolling", "PollingStepResult"]
-  }
+    enum EventType : String, CaseIterable {
+        case AuthenticationStep
+        case AuthenticationSelectorStep
+        case PollingStep
+        case PollingStepResult
+        case ContinueSameStep
+        case TokenResponse
+        case TokenResponseError
+        case HaapiError
+        case SessionTimedOut
+        case IncorrectCredentials
+        case StopPolling
+        case ProblemRepresentation
+    }
+    
+    override func supportedEvents() -> [String]! {
+        return EventType.allCases.map { $0.rawValue }
+    }
   
   @objc(load:resolver:rejecter:)
   func load(configuration: Dictionary<String, Any>,
@@ -150,22 +163,22 @@ class HaapiModule: RCTEventEmitter {
   private func process(problemRepresentation: ProblemRepresentation, promise: Promise) {
     switch(problemRepresentation.type) {
     case .incorrectCredentialsProblem:
-      sendHaapiEvent("IncorrectCredentials", body: problemRepresentation)
+        sendHaapiEvent(EventType.IncorrectCredentials, body: problemRepresentation)
     case .sessionAndAccessTokenMismatchProblem:
-      sendHaapiEvent("SessionTimedOut", body: problemRepresentation)
+        sendHaapiEvent(EventType.SessionTimedOut, body: problemRepresentation)
     default:
-      sendHaapiEvent("ProblemRepresentation", body: problemRepresentation)
+        sendHaapiEvent(EventType.ProblemRepresentation, body: problemRepresentation)
     }
   }
   
   private func process(haapiRepresentation: HaapiRepresentation, promise: Promise) { 
     switch(haapiRepresentation) {
     case is AuthenticatorSelectorStep:
-      resolveRequest(eventName: "AuthenticationSelectorStep", body: haapiRepresentation, promise: promise)
+        resolveRequest(eventType: EventType.AuthenticationSelectorStep, body: haapiRepresentation, promise: promise)
     case is InteractiveFormStep:
-      resolveRequest(eventName: "AuthenticationStep", body: haapiRepresentation, promise: promise)
+        resolveRequest(eventType: EventType.AuthenticationStep, body: haapiRepresentation, promise: promise)
     case is ContinueSameStep:
-      resolveRequest(eventName: "ContinueSameStep", body: haapiRepresentation, promise: promise)
+        resolveRequest(eventType: EventType.ContinueSameStep, body: haapiRepresentation, promise: promise)
     case let step as OAuthAuthorizationResponseStep:
       handle(codeStep: step, promise: promise)
     case let step as PollingStep:
@@ -177,13 +190,13 @@ class HaapiModule: RCTEventEmitter {
   
   private func handle(pollingStep: PollingStep,
                       promise: Promise) {
-    sendHaapiEvent("PollingStep", body: pollingStep)
+      sendHaapiEvent(EventType.PollingStep, body: pollingStep)
     
     switch(pollingStep.pollingProperties.status) {
     case .pending:
-      resolveRequest(eventName: "PollingStepResult", body: pollingStep, promise: promise)
+        resolveRequest(eventType: EventType.PollingStepResult, body: pollingStep, promise: promise)
     case .failed:
-      sendHaapiEvent("StopPolling", body: pollingStep)
+        sendHaapiEvent(EventType.StopPolling, body: pollingStep)
       submitModel(model: pollingStep.mainAction.model, promise: promise)
     case .done:
       submitModel(model: pollingStep.mainAction.model, promise: promise)
@@ -194,10 +207,10 @@ class HaapiModule: RCTEventEmitter {
         switch(tokenResponse) {
         case .successfulToken(let successfulTokenResponse):
           let tokenResponse = self.mapTokenResponse(successfulTokenResponse)
-          resolveRequest(eventName: "TokenResponse", body: tokenResponse, promise: promise)
+            resolveRequest(eventType: EventType.TokenResponse, body: tokenResponse, promise: promise)
         case .errorToken(let errorTokenResponse):
           // Request succeeded, but with contents indicating an. Resolve with contents, so that frontend can act on it.
-          resolveRequest(eventName: "TokenErrorResponse", body: errorTokenResponse, promise: promise)
+            resolveRequest(eventType: EventType.TokenResponseError, body: errorTokenResponse, promise: promise)
         case .error:
           self.sendHaapiError(description: "Failed to execute token request")
       }
@@ -228,10 +241,10 @@ class HaapiModule: RCTEventEmitter {
     return tokenResponse
   }
   
-  private func sendHaapiEvent(_ name: String, body: Codable) {
+  private func sendHaapiEvent(_ type: EventType, body: Codable) {
     do {
       let encodedBody = try encodeObject(body)
-      self.sendEvent(withName: name, body: encodedBody)
+        self.sendEvent(withName: type.rawValue, body: encodedBody)
     }
     catch {
       self.sendHaapiError(description: "Could not encode event as json. Error: \(error)");
@@ -239,11 +252,11 @@ class HaapiModule: RCTEventEmitter {
   }
   
    private func sendProblemEvent(_ problem: ProblemRepresentation) {
-      sendHaapiEvent("ProblemRepresentation", body: problem)
+       sendHaapiEvent(EventType.ProblemRepresentation, body: problem)
   }
  
   private func sendHaapiError(description: String) {
-    sendHaapiEvent("HaapiError", body: ["error": "HaapiError", "error_description": description])
+      sendHaapiEvent(EventType.HaapiError, body: ["error": "HaapiError", "error_description": description])
   }
   
   private func encodeObject(_ object: Codable) throws -> Any {
@@ -263,8 +276,8 @@ class HaapiModule: RCTEventEmitter {
     promise.reject("HaapiError", description, nil)
   }
   
-  private func resolveRequest(eventName: String, body: Codable, promise: Promise) {
-    sendHaapiEvent(eventName, body: body)
+  private func resolveRequest(eventType: EventType, body: Codable, promise: Promise) {
+    sendHaapiEvent(eventType, body: body)
     promise.resolve(body)
   }
  
