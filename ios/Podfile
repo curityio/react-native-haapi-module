@@ -18,7 +18,7 @@ end
 target 'HaapiModule' do
   config = use_native_modules!
 
-   pod 'IdsvrHaapiSdk'
+   pod 'IdsvrHaapiSdk', '4.1.0'
 
   use_react_native!(
     :path => config[:reactNativePath],
