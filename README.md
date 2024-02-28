@@ -1,4 +1,7 @@
 # react-native-haapi-module
+This a react-native Native Module that use the Hypermedia Authentication API of the Curity Identity Server. The module utilizes the iOS and Android SDK to perform attestation and communication with the API.
+
+https://curity.io/product/authentication-service/authentication-api/
 
 ## Getting started
 
