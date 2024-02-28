@@ -64,8 +64,13 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
     }
 
     @ReactMethod
-    fun load(conf: ReadableMap) {
-        _accessorRepository = HaapiAccessorRepository(conf, _reactContext)
+    fun load(conf: ReadableMap, promise: Promise) {
+        try {
+            _accessorRepository = HaapiAccessorRepository(conf, _reactContext)
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Failed to load configuration ${e.message}")
+            promise.reject(e)
+        }
     }
 
     @ReactMethod
@@ -167,6 +172,7 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
             val tokenMap = mapOf(
                 "accessToken" to tokenResponse.accessToken,
                 "refreshToken" to tokenResponse.refreshToken,
+                "scope" to tokenResponse.refreshToken,
                 "idToken" to tokenResponse.idToken
             )
             _tokenResponse = tokenResponse
