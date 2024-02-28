@@ -191,7 +191,7 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
             val tokenMap = mapOf(
                 "accessToken" to tokenResponse.accessToken,
                 "refreshToken" to tokenResponse.refreshToken,
-                "scope" to tokenResponse.refreshToken,
+                "scope" to tokenResponse.scope,
                 "idToken" to tokenResponse.idToken
             )
             _tokenResponse = tokenResponse
