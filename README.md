@@ -53,11 +53,10 @@ const haapiConfiguration = {
     "validateTlsCertificate": true,
     "acrValues": ""
 }
-try {
-    HaapiModule.load(haapiConfiguration)
-} catch (e) {
+
+HaapiModule.load(HaapiConfiguration).catch(e => {
     console.error('Error in loading configuration', e);
-}
+});
 
 export default HaapiModule;
 ```
