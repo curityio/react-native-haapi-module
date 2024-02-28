@@ -67,8 +67,9 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
     fun load(conf: ReadableMap, promise: Promise) {
         try {
             _accessorRepository = HaapiAccessorRepository(conf, _reactContext)
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             Log.w(TAG, "Failed to load configuration ${e.message}")
+            sendErrorEvent(e)
             promise.reject(e)
         }
     }
@@ -84,6 +85,7 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
         } catch (e: Exception) {
             Log.e(TAG, e.message ?: "Failed to attest $e")
             sendErrorEvent(e)
+            promise.reject(e)
         }
     }
 
@@ -117,8 +119,14 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
     @ReactMethod
     fun refreshAccessToken(refreshToken: String, promise: Promise) {
         Log.d(TAG, "Refreshing access token")
-        withTokenManager(promise) { tokenManager, coroutineContext ->
-            tokenManager.refreshAccessToken(refreshToken, coroutineContext)
+        try {
+            withTokenManager(promise) { tokenManager, coroutineContext ->
+                tokenManager.refreshAccessToken(refreshToken, coroutineContext)
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "Failed to revoke tokens: ${e.message}")
+            sendErrorEvent(e)
+            promise.reject(e)
         }
     }
 
@@ -126,15 +134,21 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
     fun navigate(linkMap: ReadableMap, promise: Promise) {
         val linkJson = _gson.toJson(linkMap.toHashMap())
         val link = _gson.fromJson(linkJson, Link::class.java)
-        withHaapiManager(promise) { haapiManager, context ->
-            haapiManager.followLink(link, context)
+        try {
+            withHaapiManager(promise) { haapiManager, context ->
+                haapiManager.followLink(link, context)
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "Failed to navigate to link: ${e.message}")
+            sendErrorEvent(e)
+            promise.reject(e)
         }
     }
 
 
     @ReactMethod
     fun submitForm(action: ReadableMap, parameters: ReadableMap, promise: Promise) {
-        getAction(action, _haapiResponse as HaapiRepresentation, parameters,promise)
+        getAction(action, _haapiResponse as HaapiRepresentation, parameters, promise)
     }
 
     /**
@@ -156,8 +170,13 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
     private fun submitModel(model: FormActionModel, parameters: Map<String, Any>, promise: Promise) {
 
         Log.d(TAG, "Submitting form $model}")
-        withHaapiManager(promise) { haapiManager, _ ->
-            haapiManager.submitForm(model, parameters)
+        try {
+            withHaapiManager(promise) { haapiManager, _ ->
+                haapiManager.submitForm(model, parameters)
+            }
+        } catch (e: Exception) {
+            sendErrorEvent(e)
+            promise.reject(e)
         }
     }
 
@@ -262,8 +281,9 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
         }
     }
 
+    @Throws(HaapiException::class)
     private fun withTokenManager(promise: Promise, accessorRequest: suspend (tokenManager: OAuthTokenManager, coroutineContext: CoroutineContext) -> TokenResponse?) {
-        _accessorRepository ?: handleNotInitialized(promise)
+        _accessorRepository ?: handleNotInitialized()
 
         runBlocking {
             launch {
@@ -276,40 +296,36 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
                     }
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to make token request: ${e.message}")
-                    sendErrorEvent(e)
-                    promise.reject("Failed to make token request", e.message)
+                    throw FailedTokenManagerRequestException("Failed to make token request", e)
                 }
             }
         }
 
     }
 
+    @Throws(HaapiException::class)
     private fun withHaapiManager(promise: Promise, accessorRequest: suspend (manager: HaapiManager, context: CoroutineContext) -> HaapiResponse) {
-        _accessorRepository ?: handleNotInitialized(promise)
+        _accessorRepository ?: handleNotInitialized()
 
         runBlocking {
             launch {
                 try {
                     val response = accessorRequest(_accessorRepository!!.accessor.haapiManager, this.coroutineContext)
                     handleHaapiResponse(response, promise)
-                    promise.resolve(response.toJsonString())
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to make HAAPI request: ${e.message}")
-                    sendErrorEvent(e)
-                    promise.reject("Failed to make HAAPI request", e.message)
+                    throw FailedHaapiRequestException("Failed to make HAAPI request", e)
                 }
             }
         }
     }
 
-    private fun handleNotInitialized(promise: Promise) {
+    private fun handleNotInitialized() {
         Log.w(
             TAG, "Accessor repository not initialized. " +
                     "Please run load() with configuration before accessing HAAPI functionality"
         )
-        val exception = HaapiNotInitializedException()
-        sendErrorEvent(exception)
-        promise.reject("Haapi Module not initialized ",exception.message)
+        throw HaapiNotInitializedException()
     }
 
 
