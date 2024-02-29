@@ -41,10 +41,14 @@ repositories {
     google()
 }
 
+def safeExtGet(prop, fallback) {
+    rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+}
+
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.21"
     implementation 'se.curity.identityserver:identityserver.haapi.android.sdk:3.4.0'
     implementation 'com.google.code.gson:gson:2.10'
-    implementation 'com.facebook.react:react-android:0.73.2'
+    implementation "com.facebook.react:react-android:${safeExtGet('reactNativeVersion', '+')}"
 }
   
