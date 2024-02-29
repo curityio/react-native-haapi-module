@@ -60,6 +60,7 @@ HaapiModule.load(HaapiConfiguration).catch(e => {
 
 export default HaapiModule;
 ```
+`load()` man be called multiple times with different configuration, to be able to start authentication flows requesting different `acr` or `scope`.
 
 ## Start
 
@@ -132,6 +133,11 @@ HaapiError                 | An unexpected problem happened. Event will have mem
 ## Example implementation
 
 See <https://github.com/curityio/react-native-haapi-example> for example implementation in javascript which is mostly driven by events.
+
+## Development
+To deploy changes in the modules to an application without publishing a new package, a file system dependency may be used. 
+* Pack your module with: `npm pack`. This will provide a `.tgz` file containing the module. 
+* Then in your application, depend on your file using `npm install $path_to_file/react-native-haapi-module/curity-react-native-haapi-module-0.4.2.tgz --save`
 
 ## Known limitations
 
