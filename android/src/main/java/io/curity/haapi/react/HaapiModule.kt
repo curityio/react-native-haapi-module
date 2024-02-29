@@ -84,9 +84,9 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
     @ReactMethod
     fun load(conf: ReadableMap, promise: Promise) {
         if(_accessorRepository != null) {
-            promise.resolve(true)
-            return
+            _accessorRepository!!.close()
         }
+
         try {
             _accessorRepository = HaapiAccessorRepository(conf, _reactContext)
         } catch (e: Exception) {
