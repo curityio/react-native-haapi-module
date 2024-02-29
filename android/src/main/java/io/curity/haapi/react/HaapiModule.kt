@@ -58,12 +58,15 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
     private var _haapiResponse: HaapiRepresentation? = null
     private var _tokenResponse: SuccessfulTokenResponse? = null
     private val _gson = Gson()
-    private var _accessorRepository: HaapiAccessorRepository? = null
 
     init {
         HaapiLogger.enabled = true
         HaapiLogger.isDebugEnabled = true
         _reactContext.addLifecycleEventListener(this)
+    }
+
+    companion object {
+        private var _accessorRepository: HaapiAccessorRepository? = null
     }
 
     override fun onHostResume() {
@@ -80,13 +83,19 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
 
     @ReactMethod
     fun load(conf: ReadableMap, promise: Promise) {
+        if(_accessorRepository != null) {
+            promise.resolve(true)
+            return
+        }
         try {
             _accessorRepository = HaapiAccessorRepository(conf, _reactContext)
         } catch (e: Exception) {
             Log.w(TAG, "Failed to load configuration ${e.message}")
             sendErrorEvent(e)
             promise.reject(e)
+            return
         }
+        promise.resolve(true)
     }
 
     @ReactMethod
@@ -329,7 +338,7 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
                     handleHaapiResponse(response, promise)
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to make HAAPI request: ${e.message}")
-                    throw FailedHaapiRequestException("Failed to make HAAPI request", e)
+                    throw FailedHaapiRequestException("Failed to make HAAPI request: ${e.message}", e)
                 }
             }
         }

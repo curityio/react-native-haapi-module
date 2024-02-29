@@ -36,7 +36,7 @@ class HaapiAccessorRepository(
         val factory = HaapiAccessorFactory(haapiConfiguration)
         HaapiConfigurationUtil.addFallbackConfiguration(factory, confMap, reactContext)
         _factory = factory
-        backingAccessor = getHaapiAccessor()
+        backingAccessor = null
     }
 
     val accessor: HaapiAccessor
