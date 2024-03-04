@@ -288,7 +288,10 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
         sendEvent("PollingStep", pollingStep.toJsonString())
         when (pollingStep.properties.status) {
             PollingStatus.PENDING -> resolveRequest("PollingStepResult", pollingStep.toJsonString(), promise)
-            PollingStatus.FAILED -> submitModel(pollingStep.mainAction.model, emptyMap(), promise)
+            PollingStatus.FAILED -> {
+                sendEvent("StopPolling", "{}")
+                submitModel(pollingStep.mainAction.model, emptyMap(), promise)
+            }
             PollingStatus.DONE -> {
                 sendEvent("StopPolling", "{}")
                 submitModel(pollingStep.mainAction.model, emptyMap(), promise)

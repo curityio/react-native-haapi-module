@@ -81,6 +81,10 @@ class HaapiModule: RCTEventEmitter {
             return
         }
         
+        if(haapiManager != nil) {
+            closeManagers()
+        }
+        
         do {
             haapiManager = try HaapiManager(haapiConfiguration: haapiConfiguration!)
             oauthTokenManager = OAuthTokenManager(oauthTokenConfiguration: haapiConfiguration!)
@@ -158,6 +162,7 @@ class HaapiModule: RCTEventEmitter {
     
     private func closeManagers() {
         haapiManager?.close()
+        haapiManager = nil
         oauthTokenManager = nil
     }
     
@@ -211,6 +216,7 @@ class HaapiModule: RCTEventEmitter {
             sendHaapiEvent(EventType.StopPolling, body: pollingStep, promise: promise)
             submitModel(model: pollingStep.mainAction.model, promise: promise)
         case .done:
+            sendHaapiEvent(EventType.StopPolling, body: pollingStep, promise: promise)
             submitModel(model: pollingStep.mainAction.model, promise: promise)
         }
     }
