@@ -28,7 +28,8 @@ class HaapiModule: RCTEventEmitter {
     private var oauthTokenManager: OAuthTokenManager?
     private var currentRepresentation: HaapiRepresentation?
     private var haapiConfiguration: HaapiConfiguration?
-    private val jsonDecoder: JSONDecoder
+    private var jsonDecoder: JSONDecoder = JSONDecoder()
+    private var jsonEncoder: JSONEncoder = JSONEncoder()
     
     override init() {
         super.init()
@@ -174,11 +175,11 @@ class HaapiModule: RCTEventEmitter {
     private func process(problemRepresentation: ProblemRepresentation, promise: Promise) {
         switch(problemRepresentation.type) {
         case .incorrectCredentialsProblem:
-            sendHaapiEvent(EventType.IncorrectCredentials, body: problemRepresentation)
+            resolveRequest(eventType: EventType.IncorrectCredentials, body: problemRepresentation, promise: promise)
         case .sessionAndAccessTokenMismatchProblem:
-            sendHaapiEvent(EventType.SessionTimedOut, body: problemRepresentation)
+            resolveRequest(eventType: EventType.SessionTimedOut, body: problemRepresentation, promise: promise)
         default:
-            sendHaapiEvent(EventType.ProblemRepresentation, body: problemRepresentation)
+            resolveRequest(eventType: EventType.ProblemRepresentation, body: problemRepresentation, promise: promise)
         }
     }
     
@@ -201,13 +202,13 @@ class HaapiModule: RCTEventEmitter {
     
     private func handle(pollingStep: PollingStep,
                         promise: Promise) {
-        sendHaapiEvent(EventType.PollingStep, body: pollingStep)
+        sendHaapiEvent(EventType.PollingStep, body: pollingStep, promise: promise)
         
         switch(pollingStep.pollingProperties.status) {
         case .pending:
             resolveRequest(eventType: EventType.PollingStepResult, body: pollingStep, promise: promise)
         case .failed:
-            sendHaapiEvent(EventType.StopPolling, body: pollingStep)
+            sendHaapiEvent(EventType.StopPolling, body: pollingStep, promise: promise)
             submitModel(model: pollingStep.mainAction.model, promise: promise)
         case .done:
             submitModel(model: pollingStep.mainAction.model, promise: promise)
@@ -224,7 +225,6 @@ class HaapiModule: RCTEventEmitter {
             resolveRequest(eventType: EventType.TokenResponseError, body: errorTokenResponse, promise: promise)
         case .error:
             rejectRequestWithError(description: "Failed to execute token request", promise: promise)
-            self.sendHaapiError(description: "Failed to execute token request")
         }
     }
     
@@ -253,22 +253,14 @@ class HaapiModule: RCTEventEmitter {
         return tokenResponse
     }
     
-    private func sendHaapiEvent(_ type: EventType, body: Codable) {
+    private func sendHaapiEvent(_ type: EventType, body: Codable, promise: Promise) {
         do {
             let encodedBody = try encodeObject(body)
             self.sendEvent(withName: type.rawValue, body: encodedBody)
         }
         catch {
-            self.sendHaapiError(description: "Could not encode event as json. Error: \(error)");
+            rejectRequestWithError(description: "Could not encode event as json. Error: \(error)", promise: promise)
         }
-    }
-    
-    private func sendProblemEvent(_ problem: ProblemRepresentation) {
-        sendHaapiEvent(EventType.ProblemRepresentation, body: problem)
-    }
-    
-    private func sendHaapiError(description: String) {
-        sendHaapiEvent(EventType.HaapiError, body: ["error": "HaapiError", "error_description": description])
     }
     
     private func encodeObject(_ object: Codable) throws -> Any {
@@ -283,14 +275,20 @@ class HaapiModule: RCTEventEmitter {
     }
     
     private func rejectRequestWithError(description: String, promise: Promise) {
-        sendHaapiError(description: description)
+        sendHaapiEvent(EventType.HaapiError, body: ["error": "HaapiError", "error_description": description], promise: promise)
         promise.reject("HaapiError", description, nil)
         closeManagers()
     }
     
     private func resolveRequest(eventType: EventType, body: Codable, promise: Promise) {
-        sendHaapiEvent(eventType, body: body)
-        promise.resolve(body)
+        do {
+            let encodedBody = try encodeObject(body)
+            promise.resolve(encodedBody)
+            self.sendEvent(withName: eventType.rawValue, body: encodedBody)
+        }
+        catch {
+            rejectRequestWithError(description: "Could not encode response as json. Error: \(error)", promise: promise)
+        }
     }
     
 }
