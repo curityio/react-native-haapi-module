@@ -28,6 +28,7 @@ class HaapiModule: RCTEventEmitter {
     private var oauthTokenManager: OAuthTokenManager?
     private var currentRepresentation: HaapiRepresentation?
     private var haapiConfiguration: HaapiConfiguration?
+    private val jsonDecoder: JSONDecoder
     
     override init() {
         super.init()
@@ -102,7 +103,6 @@ class HaapiModule: RCTEventEmitter {
             return
         }
         
-        let jsonDecoder = JSONDecoder()
         do {
             let actionObject = try JSONSerialization.data(withJSONObject: model)
             let formActionModel = try jsonDecoder.decode(FormActionModel.self, from: actionObject)
@@ -116,7 +116,6 @@ class HaapiModule: RCTEventEmitter {
     func navigate(_ linkMap: Dictionary<String, Any>,
                   resolver resolve: @escaping RCTPromiseResolveBlock,
                   rejecter reject: @escaping RCTPromiseRejectBlock) {
-        let jsonDecoder = JSONDecoder()
         
         var mutableLinkMap = linkMap
         // should be optional in SDK
@@ -224,6 +223,7 @@ class HaapiModule: RCTEventEmitter {
             // Request succeeded, but with contents indicating an. Resolve with contents, so that frontend can act on it.
             resolveRequest(eventType: EventType.TokenResponseError, body: errorTokenResponse, promise: promise)
         case .error:
+            rejectRequestWithError(description: "Failed to execute token request", promise: promise)
             self.sendHaapiError(description: "Failed to execute token request")
         }
     }
@@ -272,7 +272,6 @@ class HaapiModule: RCTEventEmitter {
     }
     
     private func encodeObject(_ object: Codable) throws -> Any {
-        let jsonEncoder = JSONEncoder()
         do {
             let jsonData = try jsonEncoder.encode(object)
             let jsonString = String(bytes:jsonData, encoding: String.Encoding.utf8)
