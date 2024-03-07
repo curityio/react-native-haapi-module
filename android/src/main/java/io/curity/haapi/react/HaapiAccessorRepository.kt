@@ -32,7 +32,7 @@ class HaapiAccessorRepository(
 
     init {
         val confMap = conf.toHashMap()
-        val haapiConfiguration = HaapiConfigurationUtil.createConfiguration(conf.toHashMap())
+        val haapiConfiguration = HaapiConfigurationUtil.createConfiguration(conf.toHashMap(), reactContext)
         val factory = HaapiAccessorFactory(haapiConfiguration)
         HaapiConfigurationUtil.addFallbackConfiguration(factory, confMap, reactContext)
         _factory = factory
