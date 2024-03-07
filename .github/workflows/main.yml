@@ -1,0 +1,14 @@
+name: Pack and Publish to NPM
+on:
+  workflow_dispatch:
+jobs:
+  create_package:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+    - name: Publish
+      uses: github-actions-community/merge-release@main
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
