@@ -242,7 +242,7 @@ class HaapiModule: RCTEventEmitter {
     }
     
     private func handle(codeStep: OAuthAuthorizationResponseStep, promise: Promise) {
-        oauthTokenManager?.fetchAccessToken(with: codeStep.oauthAuthorizationResponseProperties.code!, completionHandler: { tokenResponse in
+        oauthTokenManager?.fetchAccessToken(with: codeStep.oauthAuthorizationResponseProperties.code!, dpop: haapiManager?.dpop, completionHandler: { tokenResponse in
             self.handle(tokenResponse: tokenResponse, promise: promise)
         })
     }
