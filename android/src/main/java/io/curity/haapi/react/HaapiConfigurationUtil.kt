@@ -17,7 +17,10 @@ package io.curity.haapi.react
 
 import android.annotation.SuppressLint
 import android.content.Context
+import com.facebook.react.bridge.ReactApplicationContext
 import se.curity.identityserver.haapi.android.driver.ClientAuthenticationMethodConfiguration
+import se.curity.identityserver.haapi.android.driver.KeyPairAlgorithmConfig
+import se.curity.identityserver.haapi.android.driver.TokenBoundConfiguration
 import se.curity.identityserver.haapi.android.sdk.DcrConfiguration
 import se.curity.identityserver.haapi.android.sdk.HaapiAccessorFactory
 import se.curity.identityserver.haapi.android.sdk.HaapiConfiguration
@@ -33,7 +36,7 @@ import javax.net.ssl.SSLContext
 
 object HaapiConfigurationUtil {
 
-    fun createConfiguration(conf: HashMap<String, Any>): HaapiConfiguration = HaapiConfiguration(
+    fun createConfiguration(conf: HashMap<String, Any>, reactContext: ReactApplicationContext) = HaapiConfiguration(
         keyStoreAlias = asStringOrDefault(
             conf, "keyStoreAlias", "haapi-react-native-android"
         ),
@@ -67,6 +70,7 @@ object HaapiConfigurationUtil {
                 }
             } as HttpURLConnection
         },
+        tokenBoundConfiguration = createTokenBoundConfiguration(reactContext)
     )
 
     fun addFallbackConfiguration(accessorFactory: HaapiAccessorFactory, conf: HashMap<String, Any>, context: Context) {
@@ -82,6 +86,13 @@ object HaapiConfigurationUtil {
             )
         )
     }
+
+    private fun createTokenBoundConfiguration(reactContext: ReactApplicationContext) = TokenBoundConfiguration(
+        keyAlias = "haapi-module-dpop-key",
+        keyPairAlgorithmConfig = KeyPairAlgorithmConfig.ES256,
+        storage = SharedPreferencesStorage("token-bound-storage", reactContext),
+        currentTimeMillisProvider = { System.currentTimeMillis() }
+    )
 
     private fun asStringOrDefault(conf: HashMap<String, Any>, parameter: String, defaultValue: String): String =
         asOptionalString(conf, parameter) ?: defaultValue
