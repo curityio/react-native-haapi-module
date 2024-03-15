@@ -224,7 +224,7 @@ class HaapiModule: RCTEventEmitter {
     private func handle(tokenResponse: TokenResponse, promise: Promise) {
         switch(tokenResponse) {
         case .successfulToken(let successfulTokenResponse):
-            let tokenResponse = self.mapTokenResponse(successfulTokenResponse)
+            let tokenResponse = SuccessTokenResponse(successfulTokenResponse)
             resolveRequest(eventType: EventType.TokenResponse, body: tokenResponse, promise: promise)
         case .errorToken(let errorTokenResponse):
             // Request succeeded, but with contents indicating an. Resolve with contents, so that frontend can act on it.
@@ -245,18 +245,6 @@ class HaapiModule: RCTEventEmitter {
         oauthTokenManager?.fetchAccessToken(with: codeStep.oauthAuthorizationResponseProperties.code!, dpop: haapiManager?.dpop, completionHandler: { tokenResponse in
             self.handle(tokenResponse: tokenResponse, promise: promise)
         })
-    }
-    
-    private func mapTokenResponse(_ succesfulTokenResponse: SuccessfulTokenResponse) -> Dictionary<String, String> {
-        var tokenResponse = ["accessToken": succesfulTokenResponse.accessToken]
-        if (succesfulTokenResponse.idToken != nil) {
-            tokenResponse["idToken"] = succesfulTokenResponse.idToken
-        }
-        if (succesfulTokenResponse.refreshToken != nil) {
-            tokenResponse["refreshToken"] = succesfulTokenResponse.refreshToken
-        }
-        tokenResponse["scope"] = succesfulTokenResponse.scope ?? ""
-        return tokenResponse
     }
     
     private func sendHaapiEvent(_ type: EventType, body: Codable, promise: Promise) {
@@ -294,6 +282,22 @@ class HaapiModule: RCTEventEmitter {
         }
         catch {
             rejectRequestWithError(description: "Could not encode response as json. Error: \(error)", promise: promise)
+        }
+    }
+    
+    private struct SuccessTokenResponse : Codable {
+        var accessToken: String
+        var refreshToken: String?
+        var idToken: String?
+        var scope: String
+        var expiresIn: Int
+        
+        init(_ tokenResponse : SuccessfulTokenResponse) {
+            self.accessToken = tokenResponse.accessToken
+            self.idToken = tokenResponse.idToken
+            self.refreshToken = tokenResponse.refreshToken
+            self.scope = tokenResponse.scope ?? ""
+            self.expiresIn = tokenResponse.expiresIn
         }
     }
     

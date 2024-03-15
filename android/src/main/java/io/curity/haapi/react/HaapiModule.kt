@@ -211,7 +211,8 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
                 "accessToken" to tokenResponse.accessToken,
                 "refreshToken" to tokenResponse.refreshToken,
                 "scope" to tokenResponse.scope,
-                "idToken" to tokenResponse.idToken
+                "idToken" to tokenResponse.idToken,
+                "expiresIn" to tokenResponse.expiresIn.seconds
             )
             _tokenResponse = tokenResponse
             resolveRequest("TokenResponse", _gson.toJson(tokenMap), promise)
