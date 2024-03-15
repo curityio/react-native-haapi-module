@@ -15,6 +15,7 @@ https://curity.io/product/authentication-service/authentication-api/
 Parameter Name             | Platform | Required | Default     | Description
 -------------------------- | -------- | -------- | ----------- | -----------------------------------------------------------------------------------------------------
 `appRedirect`              | both     | false    | `app:start` | Redirect URI to use in OAuth requests. Needs to be registered in server config
+`keyStoreAlias`            | android  | false    | `haapi-react-native-android` | Keystore alias for keys used in an authentication flow
 `clientId`                 | both     | true     |             | The registered `client_id`
 `baseUri`                  | both     | true     |             | Base URI of the server. Used for relative redirects.
 `tokenEndpointUri`         | both     | true     |             | URI of the token endpoint.
