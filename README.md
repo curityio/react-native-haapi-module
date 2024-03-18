@@ -1,5 +1,5 @@
 # react-native-haapi-module
-[![Quality](https://img.shields.io/badge/quality-demo-yellow)](https://curity.io/resources/code-examples/status/)
+[![Quality](https://img.shields.io/badge/quality-test-yellow)](https://curity.io/resources/code-examples/status/)
 [![Availability](https://img.shields.io/badge/availability-source-blue)](https://curity.io/resources/code-examples/status/)
 
 This a react-native Native Module that use the Hypermedia Authentication API of the Curity Identity Server. The module utilizes the iOS and Android SDK to perform attestation and communication with the API.
