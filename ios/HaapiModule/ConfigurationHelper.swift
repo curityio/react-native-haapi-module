@@ -32,7 +32,7 @@ class ConfigurationHelper {
                                     delegate: validateTlsCertificate ? nil : TrustAllCertsDelegate(),
                                     delegateQueue: nil)
         
-        return HaapiConfiguration(name: "HaapiModule",
+        return HaapiConfiguration(name: getStringOrDefault(data: data, configKey: "configurationName", defaultString: "HaapiModule"),
                                   clientId: try getStringOrThrow(data: data, configKey: "clientId"),
                                   baseURL: try getUrlOrThrow(data: data, configKey: "baseUri"),
                                   tokenEndpointURL: try getUrlOrThrow(data: data, configKey: "tokenEndpointUri"),
