@@ -12,21 +12,22 @@ https://curity.io/product/authentication-service/authentication-api/
 
 ## Configuration
 
-Parameter Name             | Platform | Required | Default     | Description
--------------------------- | -------- | -------- | ----------- | -----------------------------------------------------------------------------------------------------
-`appRedirect`              | both     | false    | `app:start` | Redirect URI to use in OAuth requests. Needs to be registered in server config
-`keyStoreAlias`            | android  | false    | `haapi-react-native-android` | Keystore alias for keys used in an authentication flow
-`clientId`                 | both     | true     |             | The registered `client_id`
-`baseUri`                  | both     | true     |             | Base URI of the server. Used for relative redirects.
-`tokenEndpointUri`         | both     | true     |             | URI of the token endpoint.
-`authorizationEndpointUri` | both     | true     |             | URI of the authorize endpoint.
-`revocationEndpointUri`    | both     | true     |             | URI of the revocation endpoint.
-`registrationEndpointUri`  | android  | false    |             | URI of the registration endpoint. Required if fallback registration should be used.
-`fallback_template_id`     | android  | false    |             | Name of the template client to be used in fallback. Required if fallback registration should be used.
-`registration_secret`      | android  | false    |             | Name of the template client to be used in fallback. Required if fallback registration should be used.
-`validateTlsCertificate`   | both     | false    | true        | If the server TLS certificate should be validated. Set to `false` to accept self signed certificates.
-`acrValues`                | both     | false    | `""`        | Space separated string to send in authorize request.
-`scope`                    | both     | false    | `""`        | Space separated string of scopes to request.
+Parameter Name             | Platform | Required | Default                      | Description
+-------------------------- | -------- | -------- | ---------------------------- | -----------------------------------------------------------------------------------------------------
+`appRedirect`              | both     | false    | `app:start`                  | Redirect URI to use in OAuth requests. Needs to be registered in server config
+`keyStoreAlias`            | android  | false    | `haapi-react-native-android` | Keystore alias for keys used in an authentication flow. Only used on Android
+`configurationName`        | ios      | false    | `HaapiModule`                | The name to use for the configuration on iOS. If you are in testing mode and switching environments, make sure that each environment sets a different name
+`clientId`                 | both     | true     |                              | The registered `client_id`
+`baseUri`                  | both     | true     |                              | Base URI of the server. Used for relative redirects.
+`tokenEndpointUri`         | both     | true     |                              | URI of the token endpoint.
+`authorizationEndpointUri` | both     | true     |                              | URI of the authorize endpoint.
+`revocationEndpointUri`    | both     | true     |                              | URI of the revocation endpoint.
+`registrationEndpointUri`  | android  | false    |                              | URI of the registration endpoint. Required if fallback registration should be used.
+`fallback_template_id`     | android  | false    |                              | Name of the template client to be used in fallback. Required if fallback registration should be used.
+`registration_secret`      | android  | false    |                              | Name of the template client to be used in fallback. Required if fallback registration should be used.
+`validateTlsCertificate`   | both     | false    | true                         | If the server TLS certificate should be validated. Set to `false` to accept self signed certificates.
+`acrValues`                | both     | false    | `""`                         | Space separated string to send in authorize request.
+`scope`                    | both     | false    | `""`                         | Space separated string of scopes to request.
 
 ## Usage
 
@@ -127,7 +128,7 @@ ContinueSameStep           | A screen should be shown to the user, containing so
 PollingStep                | An authentication step that requires polling was received. May contain information for the user for how to proceed authentication out of band. [Polling Step](https://curity.io/docs/haapi-data-model/latest/polling-step.html)
 PollingStepResult          | A poll result was received with the `status` `PENDING`. The application may show new information to the user and continue polling.
 StopPolling                | A successful poll result was received. Application should stop polling, and the module will continue execution and may issue new events.
-TokenResponse              | Authentication was successful, and the resulting token(s) was received. The payload of the event will contain `accessToken` and `scope`. May contain `refreshToken` and `idToken`
+TokenResponse              | Authentication was successful, and the resulting token(s) was received. The payload of the event will contain `accessToken`, `expiresIn` and `scope`. May contain `refreshToken` and `idToken`
 TokenResponseError         | Authentication was successful, but the token request returned an error.
 SessionTimedOut            | The authentication process took too long, and timed out. The user will have to start over using `start()` method again.
 IncorrectCredentials       | The user enter wrong credentials in an `AuthenticationStep`. Show an error to the user and allow them to try again. [Invalid Input Problem](https://curity.io/docs/haapi-data-model/latest/invalid-input-problem.html)
