@@ -13,10 +13,29 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package io.curity.haapi.react
 
-open class HaapiException(message: String, e: Throwable? = null) : Exception(message, e)
-class FailedToInitalizeHaapiException(message: String, e: Throwable) : HaapiException(message, e)
-class FailedHaapiRequestException(message: String, e: Throwable?) : HaapiException(message, e)
-class FailedTokenManagerRequestException(message: String, e: Throwable?) : HaapiException(message, e)
-class HaapiNotInitializedException(message: String = "Module not initialized") : HaapiException(message, null)
+package io.curity.haapi.react.events
+
+enum class EventType {
+    WebAuthnAuthenticationStep,
+    WebAuthnUserCancelled,
+    AuthenticationSelectorStep,
+    ContinueSameStep,
+    AuthenticationStep,
+    RegistrationStep,
+    TokenResponse,
+    TokenResponseError,
+    UnknownResponse,
+    IncorrectCredentials,
+    SessionTimedOut,
+    PollingStep,
+    StopPolling,
+    HaapiException,
+    PollingStepResult,
+    ProblemRepresentation,
+    LoggedOut,
+    HaapiLoading,
+    HaapiFinishedLoading,
+    WebAuthnRegistrationFailed,
+    WebAuthnRegistrationFailedKeyRegistered
+}
