@@ -21,10 +21,7 @@ import com.facebook.react.bridge.ReactApplicationContext
 import se.curity.identityserver.haapi.android.driver.ClientAuthenticationMethodConfiguration
 import se.curity.identityserver.haapi.android.driver.KeyPairAlgorithmConfig
 import se.curity.identityserver.haapi.android.driver.TokenBoundConfiguration
-import se.curity.identityserver.haapi.android.sdk.DcrConfiguration
-import se.curity.identityserver.haapi.android.sdk.HaapiAccessorFactory
-import se.curity.identityserver.haapi.android.sdk.HaapiConfiguration
-import se.curity.identityserver.haapi.android.sdk.OAuthAuthorizationParameters
+import se.curity.identityserver.haapi.android.sdk.*
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URLConnection
@@ -56,10 +53,11 @@ object HaapiConfigurationUtil {
             OAuthAuthorizationParameters(
                 scope = asStringOrDefault(conf, "scope", "").split(" "),
                 acrValues = asStringOrDefault(conf, "acrValues", "").split(" "),
+                extraRequestParameters = asOptionalMap(conf, "extraRequestParameters")
             )
         },
         httpHeadersProvider = {
-            mapOf()
+          asOptionalMap(conf, "httpHeadersProvider")
         },
         httpUrlConnectionProvider = { url ->
             val validateCertificate = conf["validateTlsCertificate"] as? Boolean? ?: true
@@ -93,6 +91,10 @@ object HaapiConfigurationUtil {
         storage = SharedPreferencesStorage("token-bound-storage", reactContext),
         currentTimeMillisProvider = { System.currentTimeMillis() }
     )
+
+    private fun asOptionalMap(conf: HashMap<String, Any>, parameter: String): Map<String, String> {
+      return conf[parameter] as? Map<String, String> ?: mapOf()
+    }
 
     private fun asStringOrDefault(conf: HashMap<String, Any>, parameter: String, defaultValue: String): String =
         asOptionalString(conf, parameter) ?: defaultValue
