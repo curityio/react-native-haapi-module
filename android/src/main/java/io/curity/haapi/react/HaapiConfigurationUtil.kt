@@ -28,11 +28,11 @@ import se.curity.identityserver.haapi.android.sdk.OAuthAuthorizationParameters
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URLConnection
-import java.time.Duration
-import javax.net.ssl.X509TrustManager
 import java.security.cert.X509Certificate
+import java.time.Duration
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLContext
+import javax.net.ssl.X509TrustManager
 
 object HaapiConfigurationUtil {
 
@@ -56,10 +56,11 @@ object HaapiConfigurationUtil {
             OAuthAuthorizationParameters(
                 scope = asStringOrDefault(conf, "scope", "").split(" "),
                 acrValues = asStringOrDefault(conf, "acrValues", "").split(" "),
+                extraRequestParameters = asStringMap(conf, "extraRequestParameters")
             )
         },
         httpHeadersProvider = {
-            mapOf()
+            asStringMap(conf, "extraHttpHeaders")
         },
         httpUrlConnectionProvider = { url ->
             val validateCertificate = conf["validateTlsCertificate"] as? Boolean? ?: true
@@ -93,6 +94,10 @@ object HaapiConfigurationUtil {
         storage = SharedPreferencesStorage("token-bound-storage", reactContext),
         currentTimeMillisProvider = { System.currentTimeMillis() }
     )
+
+    private fun asStringMap(conf: HashMap<String, Any>, parameter: String): Map<String, String> {
+        return conf[parameter] as? Map<String, String> ?: mapOf()
+    }
 
     private fun asStringOrDefault(conf: HashMap<String, Any>, parameter: String, defaultValue: String): String =
         asOptionalString(conf, parameter) ?: defaultValue
