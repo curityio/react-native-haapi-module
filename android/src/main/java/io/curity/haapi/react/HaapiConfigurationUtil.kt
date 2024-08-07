@@ -21,15 +21,18 @@ import com.facebook.react.bridge.ReactApplicationContext
 import se.curity.identityserver.haapi.android.driver.ClientAuthenticationMethodConfiguration
 import se.curity.identityserver.haapi.android.driver.KeyPairAlgorithmConfig
 import se.curity.identityserver.haapi.android.driver.TokenBoundConfiguration
-import se.curity.identityserver.haapi.android.sdk.*
+import se.curity.identityserver.haapi.android.sdk.DcrConfiguration
+import se.curity.identityserver.haapi.android.sdk.HaapiAccessorFactory
+import se.curity.identityserver.haapi.android.sdk.HaapiConfiguration
+import se.curity.identityserver.haapi.android.sdk.OAuthAuthorizationParameters
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URLConnection
-import java.time.Duration
-import javax.net.ssl.X509TrustManager
 import java.security.cert.X509Certificate
+import java.time.Duration
 import javax.net.ssl.HttpsURLConnection
 import javax.net.ssl.SSLContext
+import javax.net.ssl.X509TrustManager
 
 object HaapiConfigurationUtil {
 
@@ -53,11 +56,11 @@ object HaapiConfigurationUtil {
             OAuthAuthorizationParameters(
                 scope = asStringOrDefault(conf, "scope", "").split(" "),
                 acrValues = asStringOrDefault(conf, "acrValues", "").split(" "),
-                extraRequestParameters = asOptionalMap(conf, "extraRequestParameters")
+                extraRequestParameters = asStringMap(conf, "extraRequestParameters")
             )
         },
         httpHeadersProvider = {
-          asOptionalMap(conf, "httpHeadersProvider")
+            asStringMap(conf, "extraHttpHeaders")
         },
         httpUrlConnectionProvider = { url ->
             val validateCertificate = conf["validateTlsCertificate"] as? Boolean? ?: true
@@ -92,8 +95,8 @@ object HaapiConfigurationUtil {
         currentTimeMillisProvider = { System.currentTimeMillis() }
     )
 
-    private fun asOptionalMap(conf: HashMap<String, Any>, parameter: String): Map<String, String> {
-      return conf[parameter] as? Map<String, String> ?: mapOf()
+    private fun asStringMap(conf: HashMap<String, Any>, parameter: String): Map<String, String> {
+        return conf[parameter] as? Map<String, String> ?: mapOf()
     }
 
     private fun asStringOrDefault(conf: HashMap<String, Any>, parameter: String, defaultValue: String): String =
