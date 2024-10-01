@@ -174,8 +174,12 @@ used.
 * Then in your application, depend on your file
   using `npm install $path_to_file/react-native-haapi-module/curity-react-native-haapi-module-0.4.2.tgz --save`
 
+### iOS Development
+
+This module cannot be compiled as it is, instead add a file system dependeny to the example application and open that
+workspace.
+
 ## Known limitations
 
 - Registration steps no yet supported
 - External Browser flow not yet supported
-- Webauthn/Passkeys not yet supported
