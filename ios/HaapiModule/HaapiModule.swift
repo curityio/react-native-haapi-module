@@ -16,6 +16,7 @@
 
 import Foundation
 import IdsvrHaapiSdk
+import OSLog
 
 @objc(HaapiModule)
 class HaapiModule: RCTEventEmitter {
@@ -24,17 +25,22 @@ class HaapiModule: RCTEventEmitter {
         var resolve: RCTPromiseResolveBlock
         var reject: RCTPromiseRejectBlock
     }
-    
+
+    private var haapiManager: HaapiManager?
+    private var oauthTokenManager: OAuthTokenManager?
+
     enum InitializationError: Error {
         case moduleNotLoaded(msg: String = "Configuration not created. Run load() on the module before starting a flow")
         case failedToCreateHaapiManager(_ rootCause: Error)
         case failedToCreateOAuthTokenManager(_ rootCause: Error)
     }
-    
+
     private var currentRepresentation: HaapiRepresentation?
     private var haapiConfiguration: HaapiConfiguration?
-    private var jsonDecoder: JSONDecoder = JSONDecoder()
-    private var jsonEncoder: JSONEncoder = JSONEncoder()
+
+    private let logger = Logger()
+    private let jsonDecoder: JSONDecoder = JSONDecoder()
+    private let jsonEncoder: JSONEncoder = JSONEncoder()
     
     private var backingHaapiManager: HaapiManager?
     private var backingTokenManager: OAuthTokenManager?
@@ -44,29 +50,29 @@ class HaapiModule: RCTEventEmitter {
             if (backingHaapiManager != nil) {
                 return backingHaapiManager!
             }
-            
+
             if(haapiConfiguration == nil) {
                 throw InitializationError.moduleNotLoaded()
             }
-            
+
             do {
                 backingHaapiManager = try HaapiManager(haapiConfiguration: haapiConfiguration!)
                 return backingHaapiManager!
-                
+
             } catch {
                 throw InitializationError.failedToCreateHaapiManager(error)
             }
         }
     }
-    
+
     private var oauthTokenManager: OAuthTokenManager {
         get throws {
             if backingTokenManager != nil {
                 return backingTokenManager!
             }
-            
+
             guard haapiConfiguration != nil else { throw InitializationError.moduleNotLoaded() }
-            
+
             backingTokenManager = OAuthTokenManager(oauthTokenConfiguration: haapiConfiguration!)
             return backingTokenManager!
         }
@@ -76,22 +82,7 @@ class HaapiModule: RCTEventEmitter {
         super.init()
         HaapiLogger.followUpTags = DriverFollowUpTag.allCases + SdkFollowUpTag.allCases
     }
-    
-    enum EventType : String, CaseIterable {
-        case AuthenticationStep
-        case AuthenticationSelectorStep
-        case PollingStep
-        case PollingStepResult
-        case ContinueSameStep
-        case TokenResponse
-        case TokenResponseError
-        case HaapiError
-        case SessionTimedOut
-        case IncorrectCredentials
-        case StopPolling
-        case ProblemRepresentation
-    }
-    
+
     override func supportedEvents() -> [String]! {
         return EventType.allCases.map { $0.rawValue }
     }
@@ -187,7 +178,7 @@ class HaapiModule: RCTEventEmitter {
                 self.handle(tokenResponse: tokenResponse, promise: promise)
             })
         } catch {
-            
+
         }
     }
     
@@ -209,7 +200,6 @@ class HaapiModule: RCTEventEmitter {
     }
     
     private func processHaapiResult(_ haapiResult: HaapiResult, promise: Promise) {
-            
         switch haapiResult {
         case .representation(let representation):
             do {
@@ -237,6 +227,10 @@ class HaapiModule: RCTEventEmitter {
     
     private func process(haapiRepresentation: HaapiRepresentation, promise: Promise) throws {
         switch(haapiRepresentation) {
+        case let step as WebAuthnAuthenticationClientOperationStep:
+            handle(webauthnStep: step, promise: promise)
+        case let step as WebAuthnRegistrationClientOperationStep:
+            handle(webauthnRegistrationStep: step,  promise: promise)
         case is AuthenticatorSelectorStep:
             resolveRequest(eventType: EventType.AuthenticationSelectorStep, body: haapiRepresentation, promise: promise)
         case is InteractiveFormStep:
@@ -252,6 +246,62 @@ class HaapiModule: RCTEventEmitter {
         }
     }
     
+    private func handle(webauthnRegistrationStep: WebAuthnRegistrationClientOperationStep,
+                        promise: Promise) {
+        logger.debug("Handle webauthn registration step")
+        // Start passkey registration
+        if #available(iOS 15.0, *) {
+            WebAuthnClientOperationHandler().register(operation: webauthnRegistrationStep) { result in
+                switch result {
+                case .success(let credential):
+                    guard let credentialOptions = webauthnRegistrationStep.actionModel.platformOptions else {
+                        return self.rejectRequestWithError(description: "Failed to got credential options", promise:promise)
+                    }
+
+                    let attestationObject = credential.rawAttestationObject ?? Data()
+
+                    let parameters = webauthnRegistrationStep.formattedParametersForRegistration(credentialOptions: credentialOptions,
+                                                                                                 attestationObject: attestationObject,
+                                                                                                 rawClientDataJSON: credential.rawClientDataJSON,
+                                                                                                 credentialID: credential.credentialID)
+                    self.submitModel(model: webauthnRegistrationStep.continueAction.model, parameters: parameters, promise: promise)
+                case .failure(.userCancelled):
+                    self.logger.debug("User cancelled the webauthn registration dialog")
+                    self.resolveRequest(eventType: EventType.WebAuthnUserCancelled, body: webauthnRegistrationStep, promise: promise)
+                case .failure(let error):
+                    self.logger.info("WebAuthn registration failed: \(error)")
+                    self.resolveRequest(eventType: EventType.WebAuthnRegistrationFailed, body: webauthnRegistrationStep, promise: promise)
+                }
+            }
+        } else {
+            rejectRequestWithError(description: "Passkeys are not supported on OS version before 15.0", promise: promise)
+        }
+    }
+
+    private func handle(webauthnStep: WebAuthnAuthenticationClientOperationStep,
+                        promise: Promise) {
+        if #available(iOS 15.0, *) {
+            WebAuthnClientOperationHandler().authenticate(operation: webauthnStep) { result in
+                switch result {
+                case .success(let assertion):
+                    let parameters = webauthnStep.formattedParametersForAssertion(rawAuthenticatorData: assertion.rawAuthenticatorData,
+                                                                                  rawClientDataJSON: assertion.rawClientDataJSON,
+                                                                                  signature: assertion.signature,
+                                                                                  credentialID: assertion.credentialID)
+                    self.submitModel(model: webauthnStep.continueAction.model, parameters: parameters, promise: promise)
+                case .failure(.userCancelled):
+                    self.logger.debug("User cancelled the authentication dialog")
+                    self.resolveRequest(eventType: EventType.WebAuthnUserCancelled, body: webauthnStep, promise: promise)
+                case .failure(let error):
+                    self.logger.info("WebAuthn authentication failed: \(error)")
+                    self.resolveRequest(eventType: EventType.WebAuthnAuthenticationFailed, body: webauthnStep, promise: promise)
+                }
+            }
+        } else {
+            rejectRequestWithError(description: "Passkeys are not supported on OS version before 15.0", promise: promise)
+        }
+    }
+
     private func handle(pollingStep: PollingStep,
                         promise: Promise) throws {
         sendHaapiEvent(EventType.PollingStep, body: pollingStep, promise: promise)
@@ -274,13 +324,20 @@ class HaapiModule: RCTEventEmitter {
             let tokenResponse = SuccessTokenResponse(successfulTokenResponse)
             resolveRequest(eventType: EventType.TokenResponse, body: tokenResponse, promise: promise)
         case .errorToken(let errorTokenResponse):
-            // Request succeeded, but with contents indicating an. Resolve with contents, so that frontend can act on it.
+            // Request succeeded, but with contents indicating an error. Resolve with contents, so that frontend can act on it.
             resolveRequest(eventType: EventType.TokenResponseError, body: errorTokenResponse, promise: promise)
         case .error:
             rejectRequestWithError(description: "Failed to execute token request", promise: promise)
         }
     }
     
+    private func submitModel(model: FormActionModel,
+                             parameters: [String: Any] = [:],
+                             promise: Promise) {
+        haapiManager?.submitForm(model, parameters: parameters, completionHandler: { haapiResult in
+            self.processHaapiResult(haapiResult, promise: promise)
+        })
+    }
     private func submitModel(model: FormActionModel,
                              promise: Promise) throws {
         try haapiManager.submitForm(model, parameters: [:], completionHandler: { haapiResult in
@@ -297,6 +354,7 @@ class HaapiModule: RCTEventEmitter {
     private func sendHaapiEvent(_ type: EventType, body: Codable, promise: Promise) {
         do {
             let encodedBody = try encodeObject(body)
+            logger.debug("Sending event: \(type.rawValue)")
             self.sendEvent(withName: type.rawValue, body: encodedBody)
         }
         catch {
@@ -323,8 +381,9 @@ class HaapiModule: RCTEventEmitter {
     private func resolveRequest(eventType: EventType, body: Codable, promise: Promise) {
         do {
             let encodedBody = try encodeObject(body)
+
             promise.resolve(encodedBody)
-            self.sendEvent(withName: eventType.rawValue, body: encodedBody)
+            self.sendHaapiEvent(eventType, body: body, promise: promise)
         }
         catch {
             rejectRequestWithError(description: "Could not encode response as json. Error: \(error)", promise: promise)
@@ -346,5 +405,4 @@ class HaapiModule: RCTEventEmitter {
             self.expiresIn = tokenResponse.expiresIn
         }
     }
-    
 }
