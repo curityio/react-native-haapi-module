@@ -117,6 +117,8 @@ class HaapiModule: RCTEventEmitter {
             closeManagers()
         }
         
+        sendHaapiEvent(EventType.HaapiLoading, body: ["loading": true], promise: promise)
+
         do {
             try haapiManager.start(completionHandler: { haapiResult in self.processHaapiResult(haapiResult, promise: promise) })
         } catch {
@@ -140,6 +142,7 @@ class HaapiModule: RCTEventEmitter {
         do {
             let actionObject = try JSONSerialization.data(withJSONObject: model)
             let formActionModel = try jsonDecoder.decode(FormActionModel.self, from: actionObject)
+            sendHaapiEvent(EventType.HaapiLoading, body: ["loading": true], promise: promise)
             try haapiManager.submitForm(formActionModel, parameters: parameters, completionHandler: { haapiResult in self.processHaapiResult(haapiResult, promise: promise) })
         } catch {
             rejectRequestWithError(description: "Failed to construct form to submit: \(error)", promise: promise)
@@ -173,6 +176,7 @@ class HaapiModule: RCTEventEmitter {
                             resolver resolve: @escaping RCTPromiseResolveBlock,
                             rejecter reject: @escaping RCTPromiseRejectBlock) {
         let promise = Promise(resolve: resolve, reject: reject)
+        sendHaapiEvent(EventType.HaapiLoading, body: ["loading": true], promise: promise)
         do {
             try oauthTokenManager.refreshAccessToken(with: refreshToken, completionHandler: { tokenResponse in
                 self.handle(tokenResponse: tokenResponse, promise: promise)
@@ -344,7 +348,7 @@ class HaapiModule: RCTEventEmitter {
             self.processHaapiResult(haapiResult, promise: promise)
         })
     }
-    
+
     private func handle(codeStep: OAuthAuthorizationResponseStep, promise: Promise) throws {
         try oauthTokenManager.fetchAccessToken(with: codeStep.oauthAuthorizationResponseProperties.code!, dpop: haapiManager.dpop, completionHandler: { tokenResponse in
             self.handle(tokenResponse: tokenResponse, promise: promise)
@@ -374,11 +378,13 @@ class HaapiModule: RCTEventEmitter {
     
     private func rejectRequestWithError(description: String, promise: Promise) {
         sendHaapiEvent(EventType.HaapiError, body: ["error": "HaapiError", "error_description": description], promise: promise)
+        sendHaapiEvent(EventType.HaapiFinishedLoading, body: ["loading": false], promise: promise)
         promise.reject("HaapiError", description, nil)
         closeManagers()
     }
     
     private func resolveRequest(eventType: EventType, body: Codable, promise: Promise) {
+        sendHaapiEvent(EventType.HaapiFinishedLoading, body: ["loading": false], promise: promise)
         do {
             let encodedBody = try encodeObject(body)
 
