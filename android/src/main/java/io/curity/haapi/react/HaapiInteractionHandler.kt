@@ -169,11 +169,11 @@ class HaapiInteractionHandler(private val _reactContext: ReactApplicationContext
         onSuccess: ((TokenResponse) -> Unit)? = null,
         accessorRequest: suspend (tokenManager: OAuthTokenManager, coroutineContext: CoroutineContext) -> TokenResponse?
     ) {
+        _eventEmitter.sendEvent(HaapiLoading)
+
         val manager = _accessorRepository?.accessor?.oAuthTokenManager ?: throw notInitialized()
 
         _haapiScope.launch {
-            _eventEmitter.sendEvent(HaapiLoading)
-
             try {
                 val response = accessorRequest(manager, this.coroutineContext)
                 if (onSuccess != null && response != null) {
