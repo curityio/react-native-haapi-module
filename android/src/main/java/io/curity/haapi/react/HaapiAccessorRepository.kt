@@ -17,24 +17,22 @@ package io.curity.haapi.react
 
 import android.util.Log
 import com.facebook.react.bridge.ReactApplicationContext
-import com.facebook.react.bridge.ReadableMap
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import se.curity.identityserver.haapi.android.sdk.HaapiAccessor
 import se.curity.identityserver.haapi.android.sdk.HaapiAccessorFactory
 
 class HaapiAccessorRepository(
-    conf: ReadableMap,
+    conf: Map<String, Any>,
     reactContext: ReactApplicationContext
 ) {
     private val _factory: HaapiAccessorFactory
     private var backingAccessor: HaapiAccessor? = null
 
     init {
-        val confMap = conf.toHashMap()
-        val haapiConfiguration = HaapiConfigurationUtil.createConfiguration(conf.toHashMap(), reactContext)
+        val haapiConfiguration = HaapiConfigurationUtil.createConfiguration(conf, reactContext)
         val factory = HaapiAccessorFactory(haapiConfiguration)
-        HaapiConfigurationUtil.addFallbackConfiguration(factory, confMap, reactContext)
+        HaapiConfigurationUtil.addFallbackConfiguration(factory, conf, reactContext)
         _factory = factory
         backingAccessor = null
     }
