@@ -5,10 +5,32 @@ jobs:
   create_package:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-    - name: Publish
-      uses: github-actions-community/merge-release@main
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup node
+      uses: actions/setup-node@v4
+
+    - name: Conventional changelog action
+      id: changelog
+      uses: TriPSs/conventional-changelog-action@v5
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        skip-tag: "true"
+
+    - name: Create release
+      id: create_release
+      uses: actions/create-release@v1
+      if: ${{ steps.changelog.outputs.skipped == 'false' }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        NPM_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      with:
+        tag_name: ${{ env.RELEASE_VERSION }}
+        release_name: ${{ env.RELEASE_VERSION }}
+        body: ${{ steps.changelog.outputs.clean_changelog }}
+        draft: true
+        prerelease: true
+    - name: Publish to npm 
+      run: npm publish --provenance --access public --dry-run
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
