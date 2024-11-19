@@ -24,13 +24,54 @@ class HaapiModule: RCTEventEmitter {
         var resolve: RCTPromiseResolveBlock
         var reject: RCTPromiseRejectBlock
     }
-    private var haapiManager: HaapiManager?
-    private var oauthTokenManager: OAuthTokenManager?
+    
+    enum InitializationError: Error {
+        case moduleNotLoaded(msg: String = "Configuration not created. Run load() on the module before starting a flow")
+        case failedToCreateHaapiManager(_ rootCause: Error)
+        case failedToCreateOAuthTokenManager(_ rootCause: Error)
+    }
+    
     private var currentRepresentation: HaapiRepresentation?
     private var haapiConfiguration: HaapiConfiguration?
     private var jsonDecoder: JSONDecoder = JSONDecoder()
     private var jsonEncoder: JSONEncoder = JSONEncoder()
     
+    private var backingHaapiManager: HaapiManager?
+    private var backingTokenManager: OAuthTokenManager?
+
+    private var haapiManager: HaapiManager  {
+        get throws {
+            if (backingHaapiManager != nil) {
+                return backingHaapiManager!
+            }
+            
+            if(haapiConfiguration == nil) {
+                throw InitializationError.moduleNotLoaded()
+            }
+            
+            do {
+                backingHaapiManager = try HaapiManager(haapiConfiguration: haapiConfiguration!)
+                return backingHaapiManager!
+                
+            } catch {
+                throw InitializationError.failedToCreateHaapiManager(error)
+            }
+        }
+    }
+    
+    private var oauthTokenManager: OAuthTokenManager {
+        get throws {
+            if backingTokenManager != nil {
+                return backingTokenManager!
+            }
+            
+            guard haapiConfiguration != nil else { throw InitializationError.moduleNotLoaded() }
+            
+            backingTokenManager = OAuthTokenManager(oauthTokenConfiguration: haapiConfiguration!)
+            return backingTokenManager!
+        }
+    }
+
     override init() {
         super.init()
         HaapiLogger.followUpTags = DriverFollowUpTag.allCases + SdkFollowUpTag.allCases
@@ -81,19 +122,16 @@ class HaapiModule: RCTEventEmitter {
             return
         }
         
-        if(haapiManager != nil) {
+        if(backingHaapiManager != nil) {
             closeManagers()
         }
         
         do {
-            haapiManager = try HaapiManager(haapiConfiguration: haapiConfiguration!)
-            oauthTokenManager = OAuthTokenManager(oauthTokenConfiguration: haapiConfiguration!)
+            try haapiManager.start(completionHandler: { haapiResult in self.processHaapiResult(haapiResult, promise: promise) })
         } catch {
-            rejectRequestWithError(description: "Failed to create haapi manager. Error: \(error)", promise: promise)
+            rejectRequestWithError(description: "Failed to start authentication flow. Error: \(error)", promise: promise)
             return
         }
-        
-        haapiManager?.start(completionHandler: { haapiResult in self.processHaapiResult(haapiResult, promise: promise) })
     }
     
     @objc
@@ -111,7 +149,7 @@ class HaapiModule: RCTEventEmitter {
         do {
             let actionObject = try JSONSerialization.data(withJSONObject: model)
             let formActionModel = try jsonDecoder.decode(FormActionModel.self, from: actionObject)
-            haapiManager?.submitForm(formActionModel, parameters: parameters, completionHandler: { haapiResult in self.processHaapiResult(haapiResult, promise: promise) })
+            try haapiManager.submitForm(formActionModel, parameters: parameters, completionHandler: { haapiResult in self.processHaapiResult(haapiResult, promise: promise) })
         } catch {
             rejectRequestWithError(description: "Failed to construct form to submit: \(error)", promise: promise)
         }
@@ -133,7 +171,7 @@ class HaapiModule: RCTEventEmitter {
         do {
             let linkObject = try JSONSerialization.data(withJSONObject: mutableLinkMap)
             let link = try jsonDecoder.decode(Link.self, from: linkObject)
-            haapiManager?.followLink(link, completionHandler: { haapiResult in self.processHaapiResult(haapiResult, promise: promise) })
+            try haapiManager.followLink(link, completionHandler: { haapiResult in self.processHaapiResult(haapiResult, promise: promise) })
         } catch {
             rejectRequestWithError(description: "Failed to construct link: \(error)", promise: promise)
         }
@@ -144,9 +182,13 @@ class HaapiModule: RCTEventEmitter {
                             resolver resolve: @escaping RCTPromiseResolveBlock,
                             rejecter reject: @escaping RCTPromiseRejectBlock) {
         let promise = Promise(resolve: resolve, reject: reject)
-        oauthTokenManager?.refreshAccessToken(with: refreshToken, completionHandler: { tokenResponse in
-            self.handle(tokenResponse: tokenResponse, promise: promise)
-        })
+        do {
+            try oauthTokenManager.refreshAccessToken(with: refreshToken, completionHandler: { tokenResponse in
+                self.handle(tokenResponse: tokenResponse, promise: promise)
+            })
+        } catch {
+            
+        }
     }
     
     @objc(logout:rejecter:)
@@ -161,15 +203,20 @@ class HaapiModule: RCTEventEmitter {
     }
     
     private func closeManagers() {
-        haapiManager?.close()
-        haapiManager = nil
-        oauthTokenManager = nil
+        backingHaapiManager?.close()
+        backingHaapiManager = nil
+        backingTokenManager = nil
     }
     
     private func processHaapiResult(_ haapiResult: HaapiResult, promise: Promise) {
+            
         switch haapiResult {
         case .representation(let representation):
-            process(haapiRepresentation: representation, promise: promise)
+            do {
+                try process(haapiRepresentation: representation, promise: promise)
+            } catch {
+                rejectRequestWithError(description: "Failed to process HAAPI representation: \(error)", promise: promise)
+            }
         case .problem(let problemRepresentation):
             process(problemRepresentation: problemRepresentation, promise: promise)
         case .error(let error):
@@ -188,7 +235,7 @@ class HaapiModule: RCTEventEmitter {
         }
     }
     
-    private func process(haapiRepresentation: HaapiRepresentation, promise: Promise) {
+    private func process(haapiRepresentation: HaapiRepresentation, promise: Promise) throws {
         switch(haapiRepresentation) {
         case is AuthenticatorSelectorStep:
             resolveRequest(eventType: EventType.AuthenticationSelectorStep, body: haapiRepresentation, promise: promise)
@@ -197,16 +244,16 @@ class HaapiModule: RCTEventEmitter {
         case is ContinueSameStep:
             resolveRequest(eventType: EventType.ContinueSameStep, body: haapiRepresentation, promise: promise)
         case let step as OAuthAuthorizationResponseStep:
-            handle(codeStep: step, promise: promise)
+            try handle(codeStep: step, promise: promise)
         case let step as PollingStep:
-            handle(pollingStep: step, promise: promise)
+            try handle(pollingStep: step, promise: promise)
         default:
             rejectRequestWithError(description: "Unknown step", promise: promise)
         }
     }
     
     private func handle(pollingStep: PollingStep,
-                        promise: Promise) {
+                        promise: Promise) throws {
         sendHaapiEvent(EventType.PollingStep, body: pollingStep, promise: promise)
         
         switch(pollingStep.pollingProperties.status) {
@@ -214,10 +261,10 @@ class HaapiModule: RCTEventEmitter {
             resolveRequest(eventType: EventType.PollingStepResult, body: pollingStep, promise: promise)
         case .failed:
             sendHaapiEvent(EventType.StopPolling, body: pollingStep, promise: promise)
-            submitModel(model: pollingStep.mainAction.model, promise: promise)
+            try submitModel(model: pollingStep.mainAction.model, promise: promise)
         case .done:
             sendHaapiEvent(EventType.StopPolling, body: pollingStep, promise: promise)
-            submitModel(model: pollingStep.mainAction.model, promise: promise)
+            try submitModel(model: pollingStep.mainAction.model, promise: promise)
         }
     }
     
@@ -235,14 +282,14 @@ class HaapiModule: RCTEventEmitter {
     }
     
     private func submitModel(model: FormActionModel,
-                             promise: Promise) {
-        haapiManager?.submitForm(model, parameters: [:], completionHandler: { haapiResult in
+                             promise: Promise) throws {
+        try haapiManager.submitForm(model, parameters: [:], completionHandler: { haapiResult in
             self.processHaapiResult(haapiResult, promise: promise)
         })
     }
     
-    private func handle(codeStep: OAuthAuthorizationResponseStep, promise: Promise) {
-        oauthTokenManager?.fetchAccessToken(with: codeStep.oauthAuthorizationResponseProperties.code!, dpop: haapiManager?.dpop, completionHandler: { tokenResponse in
+    private func handle(codeStep: OAuthAuthorizationResponseStep, promise: Promise) throws {
+        try oauthTokenManager.fetchAccessToken(with: codeStep.oauthAuthorizationResponseProperties.code!, dpop: haapiManager.dpop, completionHandler: { tokenResponse in
             self.handle(tokenResponse: tokenResponse, promise: promise)
         })
     }
@@ -260,7 +307,6 @@ class HaapiModule: RCTEventEmitter {
     private func encodeObject(_ object: Codable) throws -> Any {
         do {
             let jsonData = try jsonEncoder.encode(object)
-            let jsonString = String(bytes:jsonData, encoding: String.Encoding.utf8)
             return try JSONSerialization.jsonObject(with: jsonData)
         }
         catch {
