@@ -184,10 +184,10 @@ class HaapiModule: RCTEventEmitter {
     }
 
     @objc(logout:rejecter:)
-    func logout(resolver resolve: RCTPromiseResolveBlock,
-                rejecter reject: RCTPromiseRejectBlock) {
+    func logout(resolver resolve: @escaping RCTPromiseResolveBlock,
+                rejecter reject: @escaping RCTPromiseRejectBlock) {
         closeManagers()
-        resolve(true)
+        resolveRequest(eventType: EventType.LoggedOut, body: ["loggedout": true], promise: Promise(resolve: resolve, reject: reject))
     }
 
     override static func requiresMainQueueSetup() -> Bool {
