@@ -17,8 +17,6 @@
 package io.curity.haapi.react.events
 
 enum class EventType {
-    WebAuthnAuthenticationStep,
-    WebAuthnUserCancelled,
     AuthenticationSelectorStep,
     ContinueSameStep,
     AuthenticationStep,
@@ -37,5 +35,7 @@ enum class EventType {
     HaapiLoading,
     HaapiFinishedLoading,
     WebAuthnRegistrationFailed,
-    WebAuthnRegistrationFailedKeyRegistered
+    WebAuthnRegistrationFailedKeyRegistered,
+    WebAuthnAuthenticationStep,
+    WebAuthnUserCancelled,
 }
