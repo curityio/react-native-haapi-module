@@ -332,7 +332,7 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
 
         Log.d(TAG, "Rejecting request using with description '$errorDescription'")
 
-        _eventEmitter.sendEvent(HaapiException, JsonUtil.toJsonString(jsonMap))
+        _eventEmitter.sendEvent(HaapiError, JsonUtil.toJsonString(jsonMap))
         promise.reject(exception, mapToNativeMap(jsonMap))
     }
 
