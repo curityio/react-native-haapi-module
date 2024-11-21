@@ -1,4 +1,4 @@
-name: Pack and Publish to NPM
+name: Create Github release
 on:
   workflow_dispatch:
 jobs:
@@ -30,7 +30,3 @@ jobs:
         body: ${{ steps.changelog.outputs.clean_changelog }}
         draft: false
         prerelease: false
-    - name: Publish to npm 
-      run: npm publish --provenance --access public
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

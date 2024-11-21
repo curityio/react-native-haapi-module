@@ -1,0 +1,20 @@
+name: Publish to NPM
+on:
+  workflow_dispatch:
+jobs:
+  create_package:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup node
+      uses: actions/setup-node@v4
+
+    - name: Install node modules
+      run: npm ci
+
+    - name: Publish to npm 
+      run: npm publish --provenance --access public
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
