@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		5E46EC5AAE31118A736DE542 /* libPods-HaapiModule.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7751C9D7B3F15EC5702CA498 /* libPods-HaapiModule.a */; };
 		6571695A2B8E230C00A1B372 /* TrustAllCertsDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 657169592B8E230C00A1B372 /* TrustAllCertsDelegate.swift */; };
 		65B6F8682B8CDC5500AC54A9 /* HaapiModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65B6F8652B8CDC5500AC54A9 /* HaapiModule.swift */; };
 		65B6F8692B8CDC5500AC54A9 /* HaapiModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 65B6F8662B8CDC5500AC54A9 /* HaapiModule.m */; };
@@ -27,15 +26,12 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		2064A052866A8BEFDEC5032B /* Pods-HaapiModule.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-HaapiModule.debug.xcconfig"; path = "Target Support Files/Pods-HaapiModule/Pods-HaapiModule.debug.xcconfig"; sourceTree = "<group>"; };
 		657169592B8E230C00A1B372 /* TrustAllCertsDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrustAllCertsDelegate.swift; sourceTree = "<group>"; };
 		65B6F83F2B8CD91800AC54A9 /* libHaapiModule.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libHaapiModule.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		65B6F8642B8CDC5500AC54A9 /* HaapiModule-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "HaapiModule-Bridging-Header.h"; sourceTree = "<group>"; };
 		65B6F8652B8CDC5500AC54A9 /* HaapiModule.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HaapiModule.swift; sourceTree = "<group>"; };
 		65B6F8662B8CDC5500AC54A9 /* HaapiModule.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = HaapiModule.m; sourceTree = "<group>"; };
 		65B6F8672B8CDC5500AC54A9 /* ConfigurationHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ConfigurationHelper.swift; sourceTree = "<group>"; };
-		7751C9D7B3F15EC5702CA498 /* libPods-HaapiModule.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-HaapiModule.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		9654A8B9DEEC1259A745EA63 /* Pods-HaapiModule.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-HaapiModule.release.xcconfig"; path = "Target Support Files/Pods-HaapiModule/Pods-HaapiModule.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -43,7 +39,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				5E46EC5AAE31118A736DE542 /* libPods-HaapiModule.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -53,8 +48,6 @@
 		5D8522AD620596F14AA4AAE0 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				2064A052866A8BEFDEC5032B /* Pods-HaapiModule.debug.xcconfig */,
-				9654A8B9DEEC1259A745EA63 /* Pods-HaapiModule.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -65,7 +58,6 @@
 				65B6F8632B8CDC5500AC54A9 /* HaapiModule */,
 				65B6F8402B8CD91800AC54A9 /* Products */,
 				5D8522AD620596F14AA4AAE0 /* Pods */,
-				84C1BB77743FEC0AAD2C1194 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -89,14 +81,6 @@
 			path = HaapiModule;
 			sourceTree = "<group>";
 		};
-		84C1BB77743FEC0AAD2C1194 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				7751C9D7B3F15EC5702CA498 /* libPods-HaapiModule.a */,
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -104,7 +88,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 65B6F8462B8CD91800AC54A9 /* Build configuration list for PBXNativeTarget "HaapiModule" */;
 			buildPhases = (
-				475C86EC09D6C430EB9DCD03 /* [CP] Check Pods Manifest.lock */,
 				65B6F83B2B8CD91800AC54A9 /* Sources */,
 				65B6F83C2B8CD91800AC54A9 /* Frameworks */,
 				65B6F83D2B8CD91800AC54A9 /* CopyFiles */,
@@ -151,31 +134,6 @@
 			);
 		};
 /* End PBXProject section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		475C86EC09D6C430EB9DCD03 /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-HaapiModule-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		65B6F83B2B8CD91800AC54A9 /* Sources */ = {
@@ -340,7 +298,6 @@
 		};
 		65B6F8472B8CD91800AC54A9 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 2064A052866A8BEFDEC5032B /* Pods-HaapiModule.debug.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -357,7 +314,6 @@
 		};
 		65B6F8482B8CD91800AC54A9 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 9654A8B9DEEC1259A745EA63 /* Pods-HaapiModule.release.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
