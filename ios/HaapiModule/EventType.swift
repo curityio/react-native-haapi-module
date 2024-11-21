@@ -36,5 +36,6 @@ public enum EventType : String, CaseIterable {
     case WebAuthnRegistrationFailedKeyRegistered
     case HaapiLoading
     case HaapiFinishedLoading
+    case LoggedOut
     case UnknownResponse
 }
