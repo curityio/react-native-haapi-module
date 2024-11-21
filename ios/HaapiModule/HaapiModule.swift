@@ -305,10 +305,10 @@ class HaapiModule: RCTEventEmitter {
 
     private func handle(pollingStep: PollingStep,
                         promise: Promise) throws {
-        sendHaapiEvent(EventType.PollingStep, body: pollingStep, promise: promise)
 
         switch(pollingStep.pollingProperties.status) {
         case .pending:
+            sendHaapiEvent(EventType.PollingStep, body: pollingStep, promise: promise)
             resolveRequest(eventType: EventType.PollingStepResult, body: pollingStep, promise: promise)
         case .failed:
             sendHaapiEvent(EventType.StopPolling, body: pollingStep, promise: promise)
