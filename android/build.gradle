@@ -47,7 +47,7 @@ def safeExtGet(prop, fallback) {
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.22"
-    implementation "se.curity.identityserver:identityserver.haapi.android.sdk:4.2.0"
+    implementation "se.curity.identityserver:identityserver.haapi.android.sdk:4.1.0"
     implementation "com.google.code.gson:gson:2.10"
     implementation "com.facebook.react:react-android:${safeExtGet('reactNativeVersion', '+')}"
     implementation "androidx.credentials:credentials:1.2.2"
