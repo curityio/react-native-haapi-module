@@ -16,21 +16,20 @@
 package io.curity.haapi.react
 
 import android.util.Log
-import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.LifecycleEventListener
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
-import com.facebook.react.bridge.WritableNativeMap
-import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.google.gson.Gson
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import io.curity.haapi.react.JsonUtil.jsonToNativeMap
+import io.curity.haapi.react.JsonUtil.mapToNativeMap
+import io.curity.haapi.react.events.EventEmitter
+import io.curity.haapi.react.events.EventType
+import io.curity.haapi.react.events.EventType.*
+import io.curity.haapi.react.webauthn.WebAuthnHandler
 import se.curity.identityserver.haapi.android.driver.HaapiLogger
-import se.curity.identityserver.haapi.android.sdk.HaapiManager
-import se.curity.identityserver.haapi.android.sdk.OAuthTokenManager
 import se.curity.identityserver.haapi.android.sdk.models.AuthenticatorSelectorStep
 import se.curity.identityserver.haapi.android.sdk.models.ContinueSameStep
 import se.curity.identityserver.haapi.android.sdk.models.HaapiRepresentation
@@ -42,12 +41,13 @@ import se.curity.identityserver.haapi.android.sdk.models.PollingStep
 import se.curity.identityserver.haapi.android.sdk.models.ProblemRepresentation
 import se.curity.identityserver.haapi.android.sdk.models.ProblemType
 import se.curity.identityserver.haapi.android.sdk.models.RepresentationType
+import se.curity.identityserver.haapi.android.sdk.models.WebAuthnAuthenticationClientOperationStep
+import se.curity.identityserver.haapi.android.sdk.models.WebAuthnRegistrationClientOperationStep
 import se.curity.identityserver.haapi.android.sdk.models.actions.Action
 import se.curity.identityserver.haapi.android.sdk.models.actions.FormActionModel
 import se.curity.identityserver.haapi.android.sdk.models.oauth.ErrorTokenResponse
 import se.curity.identityserver.haapi.android.sdk.models.oauth.SuccessfulTokenResponse
 import se.curity.identityserver.haapi.android.sdk.models.oauth.TokenResponse
-import kotlin.coroutines.CoroutineContext
 
 const val TAG = "HaapiNative"
 
@@ -59,15 +59,14 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
     private var _haapiResponse: HaapiRepresentation? = null
     private var _tokenResponse: SuccessfulTokenResponse? = null
     private val _gson = Gson()
+    private val _handler = HaapiInteractionHandler(_reactContext)
+    private val _eventEmitter = EventEmitter(_reactContext)
+    private val _webAuthnHandler = WebAuthnHandler(_reactContext)
 
     init {
         HaapiLogger.enabled = true
         HaapiLogger.isDebugEnabled = true
         _reactContext.addLifecycleEventListener(this)
-    }
-
-    companion object {
-        private var _accessorRepository: HaapiAccessorRepository? = null
     }
 
     override fun onHostResume() {
@@ -84,28 +83,20 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
 
     @ReactMethod
     fun load(conf: ReadableMap, promise: Promise) {
-        if(_accessorRepository != null) {
-            _accessorRepository!!.close()
-        }
-
         try {
-            _accessorRepository = HaapiAccessorRepository(conf, _reactContext)
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to load configuration ${e.message}")
+            _handler.loadConfiguration(conf.toHashMap())
+        } catch (e: HaapiException) {
             rejectRequest(e, promise)
-            return
         }
         promise.resolve(true)
     }
 
     @ReactMethod
     fun start(promise: Promise) {
-
         Log.d(TAG, "Start was called")
+
         try {
-            withHaapiManager(promise) { haapiManager, context ->
-                haapiManager.start(context)
-            }
+            _handler.startAuthentication { response -> handleHaapiResponse(response, promise) }
         } catch (e: Exception) {
             Log.e(TAG, e.message ?: "Failed to attest $e")
             rejectRequest(e, promise)
@@ -115,35 +106,24 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
     @ReactMethod
     fun logout(promise: Promise) {
         Log.d(TAG, "Logout was called, revoking tokens")
-        try {
-            if (_tokenResponse != null && _tokenResponse!!.refreshToken != null) {
-                Log.d(TAG, "Revoking refresh token")
-                withTokenManager(promise) { tokenManager, context ->
-                    tokenManager.revokeRefreshToken(_tokenResponse!!.refreshToken!!, context)
-                    null
-                }
-            } else if (_tokenResponse != null) {
-                Log.d(TAG, "Revoking access token")
-                withTokenManager(promise){ tokenManager, context ->
-                    tokenManager.revokeAccessToken(_tokenResponse!!.accessToken, context)
-                    null
-                }
-            }
-        } catch (e: Exception) {
-            Log.d(TAG, "Failed to revoke tokens: ${e.message}")
+
+        if (_tokenResponse != null) {
+            _handler.logoutAndRevokeTokens(_tokenResponse!!.accessToken, _tokenResponse!!.refreshToken)
+        } else {
+            _handler.closeHaapiConnection()
         }
 
-        _accessorRepository?.close()
         _tokenResponse = null
-        resolveRequest("LoggedOut", "{}", promise)
+        resolveRequest(LoggedOut, "{}", promise)
     }
 
     @ReactMethod
     fun refreshAccessToken(refreshToken: String, promise: Promise) {
         Log.d(TAG, "Refreshing access token")
+
         try {
-            withTokenManager(promise) { tokenManager, coroutineContext ->
-                tokenManager.refreshAccessToken(refreshToken, coroutineContext)
+            _handler.refreshAccessToken(refreshToken) { tokenResponse ->
+                handleTokenResponse(tokenResponse, promise)
             }
         } catch (e: Exception) {
             Log.d(TAG, "Failed to revoke tokens: ${e.message}")
@@ -153,22 +133,27 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
 
     @ReactMethod
     fun navigate(linkMap: ReadableMap, promise: Promise) {
+
         val linkJson = _gson.toJson(linkMap.toHashMap())
         val link = _gson.fromJson(linkJson, Link::class.java)
         try {
-            withHaapiManager(promise) { haapiManager, context ->
-                haapiManager.followLink(link, context)
-            }
+            _handler.followLink(link) { response -> handleHaapiResponse(response, promise) }
         } catch (e: Exception) {
             Log.d(TAG, "Failed to navigate to link: ${e.message}")
             rejectRequest(e, promise)
         }
     }
 
-
     @ReactMethod
-    fun submitForm(action: ReadableMap, parameters: ReadableMap, promise: Promise) {
-        getAction(action, _haapiResponse as HaapiRepresentation, parameters, promise)
+    fun submitForm(actionMap: ReadableMap, parameters: ReadableMap, promise: Promise) {
+
+        val action = findAction(actionMap, _haapiResponse as HaapiRepresentation)
+        if (action == null) {
+            Log.d(TAG, "Failed to find action to submit. Possible re-submit")
+            return
+        }
+
+        submitModel(action.model, parameters.toHashMap(), promise)
     }
 
     /**
@@ -188,24 +173,32 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
     }
 
     private fun submitModel(model: FormActionModel, parameters: Map<String, Any>, promise: Promise) {
-
-        Log.d(TAG, "Submitting form $model}")
+        Log.d(TAG, "Submitting form $model")
         try {
-            withHaapiManager(promise) { haapiManager, _ ->
-                haapiManager.submitForm(model, parameters)
+            _handler.submitForm(model, parameters) { response ->
+                handleHaapiResponse(response, promise)
             }
         } catch (e: Exception) {
+            Log.w(TAG, "Failed to submit form: ${e.message}")
+            rejectRequest(e, promise)
+        }
+
+    }
+
+    private fun handleCodeResponse(response: OAuthAuthorizationResponseStep, promise: Promise) {
+        try {
+            _handler.exchangeCode(response) { tokenResponse ->
+                handleTokenResponse(tokenResponse, promise)
+            }
+
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to exchange code: ${e.message}")
             rejectRequest(e, promise)
         }
     }
 
-    private fun handleCodeResponse(response: OAuthAuthorizationResponseStep, promise: Promise) {
-        withTokenManager(promise) { manager, context ->
-            manager.fetchAccessToken(response.properties.code, context)
-        }
-    }
-
     private fun handleTokenResponse(tokenResponse: TokenResponse, promise: Promise) {
+
         if (tokenResponse is SuccessfulTokenResponse) {
             val tokenMap = mapOf(
                 "accessToken" to tokenResponse.accessToken,
@@ -215,17 +208,20 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
                 "expiresIn" to tokenResponse.expiresIn.seconds
             )
             _tokenResponse = tokenResponse
-            resolveRequest("TokenResponse", _gson.toJson(tokenMap), promise)
+            resolveRequest(TokenResponse, _gson.toJson(tokenMap), promise)
         } else {
             tokenResponse as ErrorTokenResponse
             val errorResponseMap = mapOf(
                 "error" to tokenResponse.error, "error_description" to tokenResponse.errorDescription
             )
-            resolveRequest("TokenResponseError", _gson.toJson(errorResponseMap), promise)
+            resolveRequest(TokenResponseError, JsonUtil.toJsonString(errorResponseMap), promise)
         }
     }
 
-    private fun getAction(actionMap: ReadableMap, representation: HaapiRepresentation, parameters: ReadableMap, promise: Promise) {
+    private fun findAction(
+        actionMap: ReadableMap,
+        representation: HaapiRepresentation,
+    ): Action.Form? {
         // TODO: Match more precise
         val submitKind = actionMap.getString("kind")
         Log.d(TAG, "Looking for form with kind $submitKind")
@@ -234,49 +230,61 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
         val action = representation.actions.find {
             it.toJsonObject().get("kind") == submitKind
         }
-        (action as? Action.Form)?.let { submitModel(it.model, parameters.toHashMap(), promise) }
+        return action as? Action.Form
     }
 
     private fun handleHaapiResponse(response: HaapiResponse, promise: Promise) {
+
         when (response) {
             is HaapiRepresentation -> {
                 Log.d(TAG, "Updating reference to representation")
                 _haapiResponse = response
 
                 when (response) {
+                    is WebAuthnRegistrationClientOperationStep -> handleWebAuthnRegistration(response, promise)
+
+                    is WebAuthnAuthenticationClientOperationStep -> handleWebAuthnAuthentication(response, promise)
+
                     is AuthenticatorSelectorStep -> resolveRequest(
-                        "AuthenticationSelectorStep", response.toJsonString(), promise
+                        AuthenticationSelectorStep, response.toJsonString(), promise
                     )
 
                     is ContinueSameStep -> resolveRequest(
-                        "ContinueSameStep", response.toJsonString(), promise
+                        ContinueSameStep, response.toJsonString(), promise
                     )
 
                     is OAuthAuthorizationResponseStep -> handleCodeResponse(response, promise)
                     is PollingStep -> handlePollingStep(response, promise)
 
-                    else -> if (response.type == RepresentationType.AUTHENTICATION_STEP) {
-                        resolveRequest("AuthenticationStep", response.toJsonString(), promise)
-                    } else {
-                        Log.d(TAG, "Unknown step ${response.type}")
-                        resolveRequest("UnknownResponse", response.toJsonString(), promise)
-                    }
+                    else -> when (response.type) {
+                        RepresentationType.AUTHENTICATION_STEP -> {
+                            resolveRequest(AuthenticationStep, response.toJsonString(), promise)
+                        }
 
+                        RepresentationType.REGISTRATION_STEP -> {
+                            resolveRequest(RegistrationStep, response.toJsonString(), promise)
+                        }
+
+                        else -> {
+                            Log.d(TAG, "Unknown step ${response.type}")
+                            resolveRequest(UnknownResponse, response.toJsonString(), promise)
+                        }
+                    }
                 }
             }
 
             is ProblemRepresentation -> {
                 when (response.type) {
                     ProblemType.IncorrectCredentialsProblem -> {
-                        resolveRequest("IncorrectCredentials", response.toJsonString(), promise)
+                        resolveRequest(IncorrectCredentials, response.toJsonString(), promise)
                     }
 
                     ProblemType.SessionAndAccessTokenMismatchProblem -> {
-                        resolveRequest("SessionTimedOut", response.toJsonString(), promise)
+                        resolveRequest(SessionTimedOut, response.toJsonString(), promise)
                     }
 
                     else -> {
-                        resolveRequest("ProblemRepresentation", response.toJsonString(), promise)
+                        resolveRequest(ProblemRepresentation, response.toJsonString(), promise)
                     }
                 }
             }
@@ -285,93 +293,56 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
         Log.d(TAG, response.toJsonString())
     }
 
+    private fun handleWebAuthnAuthentication(
+        response: WebAuthnAuthenticationClientOperationStep,
+        promise: Promise
+    ) =
+        _webAuthnHandler.authenticationFlow(response, promise) { parameters ->
+            submitModel(response.continueFormActionModel, parameters, promise)
+        }
+
+    private fun handleWebAuthnRegistration(
+        response: WebAuthnRegistrationClientOperationStep,
+        promise: Promise
+    ) =
+        _webAuthnHandler.registrationFlow(response, promise) { parameters ->
+            submitModel(response.continueFormActionModel, parameters, promise)
+        }
+
     private fun handlePollingStep(pollingStep: PollingStep, promise: Promise) {
-        sendEvent("PollingStep", pollingStep.toJsonString())
+
         when (pollingStep.properties.status) {
-            PollingStatus.PENDING -> resolveRequest("PollingStepResult", pollingStep.toJsonString(), promise)
+            PollingStatus.PENDING -> {
+                _eventEmitter.sendEvent(PollingStep, pollingStep.toJsonString())
+                resolveRequest(PollingStepResult, pollingStep.toJsonString(), promise)
+            }
+
             PollingStatus.FAILED -> {
-                sendEvent("StopPolling", "{}")
+                _eventEmitter.sendEvent(StopPolling, "{}")
                 submitModel(pollingStep.mainAction.model, emptyMap(), promise)
             }
+
             PollingStatus.DONE -> {
-                sendEvent("StopPolling", "{}")
+                _eventEmitter.sendEvent(StopPolling, "{}")
                 submitModel(pollingStep.mainAction.model, emptyMap(), promise)
             }
         }
-    }
-
-    @Throws(HaapiException::class)
-    private fun withTokenManager(promise: Promise, accessorRequest: suspend (tokenManager: OAuthTokenManager, coroutineContext: CoroutineContext) -> TokenResponse?) {
-        _accessorRepository ?: handleNotInitialized()
-
-        runBlocking {
-            launch {
-                try {
-                    val response =
-                        accessorRequest(_accessorRepository!!.accessor.oAuthTokenManager, this.coroutineContext)
-                    if (response != null) {
-                        handleTokenResponse(response, promise)
-                        promise.resolve(response.toJsonString())
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to make token request: ${e.message}")
-                    throw FailedTokenManagerRequestException("Failed to make token request", e)
-                }
-            }
-        }
-
-    }
-
-    @Throws(HaapiException::class)
-    private fun withHaapiManager(promise: Promise, accessorRequest: suspend (manager: HaapiManager, context: CoroutineContext) -> HaapiResponse) {
-        _accessorRepository ?: handleNotInitialized()
-
-        runBlocking {
-            launch {
-                try {
-                    val response = accessorRequest(_accessorRepository!!.accessor.haapiManager, this.coroutineContext)
-                    handleHaapiResponse(response, promise)
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to make HAAPI request: ${e.message}")
-                    throw FailedHaapiRequestException("Failed to make HAAPI request: ${e.message}", e)
-                }
-            }
-        }
-    }
-
-    private fun handleNotInitialized() {
-        Log.w(
-            TAG, "Accessor repository not initialized. " +
-                    "Please run load() with configuration before accessing HAAPI functionality"
-        )
-        throw HaapiNotInitializedException()
-    }
-
-
-    private fun sendEvent(eventName: String, json: String) {
-        Log.d(TAG, "Firing event $eventName")
-
-        val reactMap = jsonToMap(json)
-        _reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java).emit(eventName, reactMap)
     }
 
     private fun rejectRequest(exception: Exception, promise: Promise) {
-        val map = Arguments.createMap()
-        map.putString("error", "HaapiError")
-        map.putString("error_description", exception.message)
-        _reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java).emit("HaapiError", map.copy())
-        promise.reject(exception, map)
+        val errorDescription = exception.message ?: "general error"
+        val jsonMap = mutableMapOf("error" to "HaapiError", "error_description" to errorDescription)
+
+        Log.d(TAG, "Rejecting request using with description '$errorDescription'")
+
+        _eventEmitter.sendEvent(HaapiError, JsonUtil.toJsonString(jsonMap))
+        promise.reject(exception, mapToNativeMap(jsonMap))
     }
 
-    private fun jsonToMap(json: String): WritableNativeMap? {
-        var map = HashMap<String, Any>()
-        map = _gson.fromJson(json, map::class.java)
-        return Arguments.makeNativeMap(map)
-    }
+    private fun resolveRequest(eventType: EventType, body: String, promise: Promise) {
+        Log.d(TAG, "Resolving request using event type $eventType and body: $body")
 
-    private fun resolveRequest(eventType: String, body: String, promise: Promise) {
-        sendEvent(eventType, body)
-        promise.resolve(jsonToMap(body))
+        _eventEmitter.sendEvent(eventType, body)
+        promise.resolve(jsonToNativeMap(body))
     }
-
 }
