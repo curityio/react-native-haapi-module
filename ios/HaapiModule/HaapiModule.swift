@@ -20,14 +20,11 @@ import OSLog
 
 @objc(HaapiModule)
 class HaapiModule: RCTEventEmitter {
-    
+
     struct Promise {
         var resolve: RCTPromiseResolveBlock
         var reject: RCTPromiseRejectBlock
     }
-
-    private var haapiManager: HaapiManager?
-    private var oauthTokenManager: OAuthTokenManager?
 
     enum InitializationError: Error {
         case moduleNotLoaded(msg: String = "Configuration not created. Run load() on the module before starting a flow")
@@ -41,7 +38,7 @@ class HaapiModule: RCTEventEmitter {
     private let logger = Logger()
     private let jsonDecoder: JSONDecoder = JSONDecoder()
     private let jsonEncoder: JSONEncoder = JSONEncoder()
-    
+
     private var backingHaapiManager: HaapiManager?
     private var backingTokenManager: OAuthTokenManager?
 
@@ -86,13 +83,13 @@ class HaapiModule: RCTEventEmitter {
     override func supportedEvents() -> [String]! {
         return EventType.allCases.map { $0.rawValue }
     }
-    
+
     @objc(load:resolver:rejecter:)
     func load(configuration: Dictionary<String, Any>,
               resolver resolve: @escaping RCTPromiseResolveBlock,
               rejecter reject: @escaping RCTPromiseRejectBlock) {
         let promise = Promise(resolve: resolve, reject: reject)
-        
+
         do {
             haapiConfiguration = try ConfigurationHelper.createHaapiConfiguration(data: configuration)
             promise.resolve(true)
@@ -100,23 +97,23 @@ class HaapiModule: RCTEventEmitter {
             rejectRequestWithError(description: "Could not configure module: \(error)", promise: promise)
         }
     }
-    
-    
+
+
     @objc(start:rejecter:)
     func start(resolver resolve: @escaping RCTPromiseResolveBlock,
                rejecter reject: @escaping RCTPromiseRejectBlock) {
-        
+
         let promise = Promise(resolve: resolve, reject: reject)
-        
+
         if(haapiConfiguration == nil) {
             rejectRequestWithError(description: "Configuration not created. Run load() on the module before starting a flow", promise: promise)
             return
         }
-        
+
         if(backingHaapiManager != nil) {
             closeManagers()
         }
-        
+
         sendHaapiEvent(EventType.HaapiLoading, body: ["loading": true], promise: promise)
 
         do {
@@ -126,19 +123,19 @@ class HaapiModule: RCTEventEmitter {
             return
         }
     }
-    
+
     @objc
     func submitForm(_ action: Dictionary<String, Any>,
                     parameters: Dictionary<String, Any>,
                     resolver resolve: @escaping RCTPromiseResolveBlock,
                     rejecter reject: @escaping RCTPromiseRejectBlock) {
         let promise = Promise(resolve: resolve, reject: reject)
-        
+
         guard let model = action["model"] else {
             rejectRequestWithError(description: "", promise: promise)
             return
         }
-        
+
         do {
             let actionObject = try JSONSerialization.data(withJSONObject: model)
             let formActionModel = try jsonDecoder.decode(FormActionModel.self, from: actionObject)
@@ -148,20 +145,20 @@ class HaapiModule: RCTEventEmitter {
             rejectRequestWithError(description: "Failed to construct form to submit: \(error)", promise: promise)
         }
     }
-    
+
     @objc
     func navigate(_ linkMap: Dictionary<String, Any>,
                   resolver resolve: @escaping RCTPromiseResolveBlock,
                   rejecter reject: @escaping RCTPromiseRejectBlock) {
-        
+
         var mutableLinkMap = linkMap
         // should be optional in SDK
         if(mutableLinkMap["rel"] == nil) {
             mutableLinkMap["rel"] = "link"
         }
-        
+
         let promise = Promise(resolve: resolve, reject: reject)
-        
+
         do {
             let linkObject = try JSONSerialization.data(withJSONObject: mutableLinkMap)
             let link = try jsonDecoder.decode(Link.self, from: linkObject)
@@ -170,7 +167,7 @@ class HaapiModule: RCTEventEmitter {
             rejectRequestWithError(description: "Failed to construct link: \(error)", promise: promise)
         }
     }
-    
+
     @objc
     func refreshAccessToken(_ refreshToken: String,
                             resolver resolve: @escaping RCTPromiseResolveBlock,
@@ -185,24 +182,24 @@ class HaapiModule: RCTEventEmitter {
 
         }
     }
-    
+
     @objc(logout:rejecter:)
     func logout(resolver resolve: RCTPromiseResolveBlock,
                 rejecter reject: RCTPromiseRejectBlock) {
         closeManagers()
         resolve(true)
     }
-    
+
     override static func requiresMainQueueSetup() -> Bool {
         return true
     }
-    
+
     private func closeManagers() {
         backingHaapiManager?.close()
         backingHaapiManager = nil
         backingTokenManager = nil
     }
-    
+
     private func processHaapiResult(_ haapiResult: HaapiResult, promise: Promise) {
         switch haapiResult {
         case .representation(let representation):
@@ -217,7 +214,7 @@ class HaapiModule: RCTEventEmitter {
             rejectRequestWithError(description: "Unknown error: " + error.localizedDescription, promise: promise)
         }
     }
-    
+
     private func process(problemRepresentation: ProblemRepresentation, promise: Promise) {
         switch(problemRepresentation.type) {
         case .incorrectCredentialsProblem:
@@ -228,7 +225,7 @@ class HaapiModule: RCTEventEmitter {
             resolveRequest(eventType: EventType.ProblemRepresentation, body: problemRepresentation, promise: promise)
         }
     }
-    
+
     private func process(haapiRepresentation: HaapiRepresentation, promise: Promise) throws {
         switch(haapiRepresentation) {
         case let step as WebAuthnAuthenticationClientOperationStep:
@@ -249,7 +246,7 @@ class HaapiModule: RCTEventEmitter {
             rejectRequestWithError(description: "Unknown step", promise: promise)
         }
     }
-    
+
     private func handle(webauthnRegistrationStep: WebAuthnRegistrationClientOperationStep,
                         promise: Promise) {
         logger.debug("Handle webauthn registration step")
@@ -309,19 +306,19 @@ class HaapiModule: RCTEventEmitter {
     private func handle(pollingStep: PollingStep,
                         promise: Promise) throws {
         sendHaapiEvent(EventType.PollingStep, body: pollingStep, promise: promise)
-        
+
         switch(pollingStep.pollingProperties.status) {
         case .pending:
             resolveRequest(eventType: EventType.PollingStepResult, body: pollingStep, promise: promise)
         case .failed:
             sendHaapiEvent(EventType.StopPolling, body: pollingStep, promise: promise)
-            try submitModel(model: pollingStep.mainAction.model, promise: promise)
+            submitModel(model: pollingStep.mainAction.model, promise: promise)
         case .done:
             sendHaapiEvent(EventType.StopPolling, body: pollingStep, promise: promise)
-            try submitModel(model: pollingStep.mainAction.model, promise: promise)
+            submitModel(model: pollingStep.mainAction.model, promise: promise)
         }
     }
-    
+
     private func handle(tokenResponse: TokenResponse, promise: Promise) {
         switch(tokenResponse) {
         case .successfulToken(let successfulTokenResponse):
@@ -334,19 +331,18 @@ class HaapiModule: RCTEventEmitter {
             rejectRequestWithError(description: "Failed to execute token request", promise: promise)
         }
     }
-    
+
     private func submitModel(model: FormActionModel,
                              parameters: [String: Any] = [:],
                              promise: Promise) {
-        haapiManager?.submitForm(model, parameters: parameters, completionHandler: { haapiResult in
-            self.processHaapiResult(haapiResult, promise: promise)
-        })
-    }
-    private func submitModel(model: FormActionModel,
-                             promise: Promise) throws {
-        try haapiManager.submitForm(model, parameters: [:], completionHandler: { haapiResult in
-            self.processHaapiResult(haapiResult, promise: promise)
-        })
+        do {
+            try haapiManager.submitForm(model, parameters: parameters, completionHandler: { haapiResult in
+                self.processHaapiResult(haapiResult, promise: promise)
+            })
+        }
+        catch {
+            rejectRequestWithError(description: "Failed to submit model", promise: promise)
+        }
     }
 
     private func handle(codeStep: OAuthAuthorizationResponseStep, promise: Promise) throws {
@@ -354,7 +350,7 @@ class HaapiModule: RCTEventEmitter {
             self.handle(tokenResponse: tokenResponse, promise: promise)
         })
     }
-    
+
     private func sendHaapiEvent(_ type: EventType, body: Codable, promise: Promise) {
         do {
             let encodedBody = try encodeObject(body)
@@ -365,7 +361,7 @@ class HaapiModule: RCTEventEmitter {
             rejectRequestWithError(description: "Could not encode event as json. Error: \(error)", promise: promise)
         }
     }
-    
+
     private func encodeObject(_ object: Codable) throws -> Any {
         do {
             let jsonData = try jsonEncoder.encode(object)
@@ -375,14 +371,14 @@ class HaapiModule: RCTEventEmitter {
             throw NSError()
         }
     }
-    
+
     private func rejectRequestWithError(description: String, promise: Promise) {
         sendHaapiEvent(EventType.HaapiError, body: ["error": "HaapiError", "error_description": description], promise: promise)
         sendHaapiEvent(EventType.HaapiFinishedLoading, body: ["loading": false], promise: promise)
         promise.reject("HaapiError", description, nil)
         closeManagers()
     }
-    
+
     private func resolveRequest(eventType: EventType, body: Codable, promise: Promise) {
         sendHaapiEvent(EventType.HaapiFinishedLoading, body: ["loading": false], promise: promise)
         do {
@@ -395,14 +391,14 @@ class HaapiModule: RCTEventEmitter {
             rejectRequestWithError(description: "Could not encode response as json. Error: \(error)", promise: promise)
         }
     }
-    
+
     private struct SuccessTokenResponse : Codable {
         var accessToken: String
         var refreshToken: String?
         var idToken: String?
         var scope: String
         var expiresIn: Int
-        
+
         init(_ tokenResponse : SuccessfulTokenResponse) {
             self.accessToken = tokenResponse.accessToken
             self.idToken = tokenResponse.idToken
