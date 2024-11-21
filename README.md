@@ -93,6 +93,8 @@ eventEmitter.addListener("EventName", () => {
 });
 ```
 
+Since `start()` will start an authentication flow, it's recommended to only call it when a user performs an action to start the login.
+
 ## Navigate
 
 To follow a link in a HAAPI response, the `navigate(model)` function can be used. `model` is an object conforming to [Link](https://curity.io/docs/haapi-data-model/latest/links.html)
@@ -169,4 +171,5 @@ This module cannot be compiled as it is, instead add a file system dependency to
 
 ## Known limitations
 
+- Registration steps are not yet fully supported
 - External Browser flow not yet supported
