@@ -157,9 +157,13 @@ HaapiLoading                            | The module has started a request and i
 HaapiFinishedLoading                    | The module received response and finished processing
 LoggedOut                               | The module finished the logout
 WebAuthnAuthenticationStep              | Current authentication step is a webauthn/passkeys step. The module will perform a client operation to ask the user to authenticate on their device. The full step is provided to the client to be able to show an appropriate screen. [Login with WebAuthn](https://curity.io/docs/haapi-data-model/latest/webauthn-authentication-step.html)
-WebAuthnUserCancelled                   | User cancelled the authentication request. App should show appropriate screens for how to proceed
+WebAuthnUserCancelled                   | User canceled the authentication request. App should show appropriate screens for how to proceed
 WebAuthnRegistrationFailed              | Registration of a webauthn device failed
 WebAuthnRegistrationFailedKeyRegistered | Registration of a webauthn device failed. Reason is likely because the key is already registered. User should proceed to authenticate using the key.
+
+## Passkeys
+Passkey implementation is supported on iOS 15.0+, and on Android the Credential Manager API is used which should support passkeys from version 9, API level 28.
+Additional configuration is necessary to be able to use passkeys in the app, but also on Curity configuration. See the Curity article on how to enable [Mobile Logins Using Passkeys](https://curity.io/resources/learn/mobile-logins-using-native-passkeys/)
 
 ## Example implementation
 
