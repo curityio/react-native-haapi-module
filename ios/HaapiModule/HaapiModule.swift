@@ -179,7 +179,7 @@ class HaapiModule: RCTEventEmitter {
                 self.handle(tokenResponse: tokenResponse, promise: promise)
             })
         } catch {
-
+            rejectRequestWithError(description: "Could not refresh access token: \(error)", promise: promise)
         }
     }
 
