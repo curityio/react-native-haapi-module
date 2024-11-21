@@ -30,7 +30,7 @@ enum class EventType {
     SessionTimedOut,
     PollingStep,
     StopPolling,
-    HaapiException,
+    HaapiError,
     PollingStepResult,
     ProblemRepresentation,
     LoggedOut,
