@@ -22,6 +22,7 @@ jobs:
         release-count: 0
         skip-tag: true
         skip-bump: true
+        skip-empty-release: false
 
 ##    - name: Create release
 ##      id: create_release
