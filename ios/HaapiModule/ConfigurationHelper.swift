@@ -32,6 +32,8 @@ class ConfigurationHelper {
                                     delegate: validateTlsCertificate ? nil : TrustAllCertsDelegate(),
                                     delegateQueue: nil)
         let boundedTokenConfiguration = BoundedTokenConfiguration()
+        let extraRequestParameters = getStringMap(data: data, configKey: "extraRequestParameters")
+        let extraHttpHeaders = getStringMap(data: data, configKey: "extraHttpHeaders")
         
         return HaapiConfiguration(name: getStringOrDefault(data: data, configKey: "configurationName", defaultString: "HaapiModule"),
                                   clientId: try getStringOrThrow(data: data, configKey: "clientId"),
@@ -39,8 +41,10 @@ class ConfigurationHelper {
                                   tokenEndpointURL: try getUrlOrThrow(data: data, configKey: "tokenEndpointUri"),
                                   authorizationEndpointURL: try getUrlOrThrow(data: data, configKey: "authorizationEndpointUri"),
                                   appRedirect: getStringOrDefault(data: data, configKey: "appRedirect", defaultString: "app:start"),
-                                  httpHeadersProvider: nil,
-                                  authorizationParametersProvider: { () -> OAuthAuthorizationParameters in OAuthAuthorizationParameters(scopes: scope, acrValues: acrValues) },
+                                  httpHeadersProvider: { extraHttpHeaders },
+                                  authorizationParametersProvider: { () -> OAuthAuthorizationParameters in OAuthAuthorizationParameters(scopes: scope,
+                                                                                                                                        acrValues: acrValues,
+                                                                                                                                        extraRequestParameters: extraRequestParameters) },
                                   isAutoRedirect: true,
                                   urlSession: urlSession,
                                   tokenBoundConfiguration: boundedTokenConfiguration)
@@ -67,5 +71,16 @@ class ConfigurationHelper {
         return getStringOrDefault(data: data, configKey: configKey, defaultString: "")
             .split(separator: " ")
             .map { String($0) }
+    }
+    
+    private static func getStringMap(data: Dictionary<String, Any>, configKey: String) -> Dictionary<String, String> {
+        guard let map = data[configKey] as? [String: Any] else { return [String: String]() }
+        var stringMap = [String: String]()
+        for (key, value) in map {
+            if let value = value as? String {
+                stringMap[key] = value
+            }
+        }
+        return stringMap
     }
 }
