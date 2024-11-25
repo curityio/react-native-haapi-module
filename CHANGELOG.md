@@ -1,4 +1,4 @@
-# [0.7.0](https://github.com/curityio/react-native-haapi-module/compare/v0.4.12...v0.7.0) (2024-11-25)
+# [0.5.0](https://github.com/curityio/react-native-haapi-module/compare/v0.4.12...v0.5.0) (2024-11-25)
 
 
 ### Bug Fixes
