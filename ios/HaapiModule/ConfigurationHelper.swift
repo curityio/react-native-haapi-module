@@ -31,6 +31,7 @@ class ConfigurationHelper {
         let urlSession = URLSession(configuration: URLSessionConfiguration.haapi,
                                     delegate: validateTlsCertificate ? nil : TrustAllCertsDelegate(),
                                     delegateQueue: nil)
+        let boundedTokenConfiguration = BoundedTokenConfiguration()
         
         return HaapiConfiguration(name: getStringOrDefault(data: data, configKey: "configurationName", defaultString: "HaapiModule"),
                                   clientId: try getStringOrThrow(data: data, configKey: "clientId"),
@@ -41,7 +42,8 @@ class ConfigurationHelper {
                                   httpHeadersProvider: nil,
                                   authorizationParametersProvider: { () -> OAuthAuthorizationParameters in OAuthAuthorizationParameters(scopes: scope, acrValues: acrValues) },
                                   isAutoRedirect: true,
-                                  urlSession: urlSession)
+                                  urlSession: urlSession,
+                                  tokenBoundConfiguration: boundedTokenConfiguration)
         
     }
     
