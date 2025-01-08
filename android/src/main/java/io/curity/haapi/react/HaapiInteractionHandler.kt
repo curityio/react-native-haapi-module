@@ -68,11 +68,12 @@ class HaapiInteractionHandler(private val _reactContext: ReactApplicationContext
      * Starts the flow by performing an authorization request to the configured server.
      * This will perform attestation and obtain an API access token
      *
-     * @throws FailedHaapiRequestException if the request fails
      */
-    @Throws(FailedHaapiRequestException::class)
-    fun startAuthentication(onSuccess: (HaapiResponse) -> Unit) {
-        withHaapiManager(onSuccess) { haapiManager, context ->
+    fun startAuthentication(
+        onSuccess: (HaapiResponse) -> Unit,
+        onError: (FailedHaapiRequestException) -> Unit
+    ) {
+        withHaapiManager(onSuccess, onError) { haapiManager, context ->
             haapiManager.start(context)
         }
     }
@@ -95,55 +96,58 @@ class HaapiInteractionHandler(private val _reactContext: ReactApplicationContext
     }
 
     @Throws(FailedTokenManagerRequestException::class)
-    fun exchangeCode(codeResponse: OAuthAuthorizationResponseStep, onSuccess: (TokenResponse) -> Unit) {
-        withTokenManager(onSuccess) { tokenManager, context ->
+    fun exchangeCode(
+        codeResponse: OAuthAuthorizationResponseStep,
+        onSuccess: (TokenResponse) -> Unit,
+        onError: (FailedHaapiRequestException) -> Unit
+    ) {
+        withTokenManager(onSuccess, onError) { tokenManager, context ->
             tokenManager.fetchAccessToken(codeResponse.properties.code, context)
         }
     }
 
-    @Throws(FailedTokenManagerRequestException::class)
-    fun refreshAccessToken(refreshToken: String, onSuccess: (TokenResponse) -> Unit) {
+    fun refreshAccessToken(
+        refreshToken: String,
+        onSuccess: (TokenResponse) -> Unit,
+        onError: (FailedHaapiRequestException) -> Unit
+    ) {
         Log.d(TAG, "Refreshing access token")
 
-        try {
-            withTokenManager(onSuccess) { tokenManager, coroutineContext ->
-                tokenManager.refreshAccessToken(refreshToken, coroutineContext)
-            }
-        } catch (e: Exception) {
-            Log.d(TAG, "Failed to refresh tokens: ${e.message}")
-            throw FailedTokenManagerRequestException("Failed to refresh token", e)
+        withTokenManager(onSuccess, onError) { tokenManager, coroutineContext ->
+            tokenManager.refreshAccessToken(refreshToken, coroutineContext)
         }
     }
 
-    fun logoutAndRevokeTokens(accessToken: String, refreshToken: String? = null) {
-        try {
-            if (refreshToken != null) {
-                Log.d(TAG, "Revoking refresh token")
-                withTokenManager { tokenManager, context ->
-                    tokenManager.revokeRefreshToken(refreshToken!!, context)
-                    null
-                }
-            } else {
-                Log.d(TAG, "Revoking access token")
-                withTokenManager { tokenManager, context ->
-                    tokenManager.revokeAccessToken(accessToken, context)
-                    null
-                }
+    fun logoutAndRevokeTokens(
+        accessToken: String,
+        refreshToken: String? = null,
+        onSuccess: (TokenResponse) -> Unit,
+        onError: (FailedHaapiRequestException) -> Unit
+    ) {
+        if (refreshToken != null) {
+            Log.d(TAG, "Revoking refresh token")
+            withTokenManager(onSuccess, onError) { tokenManager, context ->
+                tokenManager.revokeRefreshToken(refreshToken, context)
+                null
             }
-        } catch (e: Exception) {
-            Log.d(TAG, "Failed to revoke tokens: ${e.message}")
+        } else {
+            Log.d(TAG, "Revoking access token")
+            withTokenManager(onSuccess, onError) { tokenManager, context ->
+                tokenManager.revokeAccessToken(accessToken, context)
+                null
+            }
         }
 
-        _accessorRepository?.close()
+        closeHaapiConnection()
     }
 
     fun closeHaapiConnection() {
         _accessorRepository?.close()
     }
 
-    @Throws(FailedHaapiRequestException::class)
     private fun withHaapiManager(
         onSuccess: (HaapiResponse) -> Unit,
+        onError: ((FailedHaapiRequestException) -> Unit)? = null,
         accessorRequest: suspend (manager: HaapiManager, context: CoroutineContext) -> HaapiResponse
     ) {
         _eventEmitter.sendEvent(HaapiLoading)
@@ -157,16 +161,23 @@ class HaapiInteractionHandler(private val _reactContext: ReactApplicationContext
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to make HAAPI request: ${e.message}")
                 _eventEmitter.sendEvent(EventType.HaapiFinishedLoading)
-                throw FailedHaapiRequestException("Failed to make HAAPI request: ${e.message}", e)
+                if (onError != null) {
+                    onError(
+                        FailedHaapiRequestException(
+                            "Failed to make HAAPI request: ${e.message}",
+                            e
+                        )
+                    )
+                }
+            } finally {
+                _eventEmitter.sendEvent(EventType.HaapiFinishedLoading)
             }
-
-            _eventEmitter.sendEvent(EventType.HaapiFinishedLoading)
         }
     }
 
-    @Throws(FailedTokenManagerRequestException::class)
     private fun withTokenManager(
         onSuccess: ((TokenResponse) -> Unit)? = null,
+        onError: ((FailedHaapiRequestException) -> Unit)? = null,
         accessorRequest: suspend (tokenManager: OAuthTokenManager, coroutineContext: CoroutineContext) -> TokenResponse?
     ) {
         _eventEmitter.sendEvent(HaapiLoading)
@@ -182,10 +193,17 @@ class HaapiInteractionHandler(private val _reactContext: ReactApplicationContext
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to make token request: ${e.message}")
                 _eventEmitter.sendEvent(EventType.HaapiFinishedLoading)
-                throw FailedTokenManagerRequestException("Failed to make token request", e)
+                if (onError != null) {
+                    onError(
+                        FailedHaapiRequestException(
+                            "Failed to make HAAPI request: ${e.message}",
+                            e
+                        )
+                    )
+                }
+            } finally {
+                _eventEmitter.sendEvent(EventType.HaapiFinishedLoading)
             }
-
-            _eventEmitter.sendEvent(EventType.HaapiFinishedLoading)
         }
 
     }
