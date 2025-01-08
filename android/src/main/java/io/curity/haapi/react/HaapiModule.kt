@@ -96,8 +96,8 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) :
     fun start(promise: Promise) {
         Log.d(TAG, "Start was called")
         _handler.startAuthentication(
-            onSuccess = {response -> handleHaapiResponse(response, promise)},
-            onError = {e ->
+            onSuccess = { response -> handleHaapiResponse(response, promise) },
+            onError = { e ->
                 Log.e(TAG, e.message ?: "Failed to attest $e")
                 rejectRequest(e, promise)
             }
@@ -115,7 +115,7 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) :
                     _tokenResponse = null
                     resolveRequest(LoggedOut, "{}", promise)
                 },
-                onError = {e ->
+                onError = { e ->
                     Log.w(TAG, "Failed to logout: ${e.message}")
                     rejectRequest(e, promise)
                 }
@@ -138,31 +138,31 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) :
             onError = { e ->
                 rejectRequest(e, promise)
             }
-         )
+        )
     }
 
     @ReactMethod
     fun navigate(linkMap: ReadableMap, promise: Promise) {
-
         val linkJson = _gson.toJson(linkMap.toHashMap())
         val link = _gson.fromJson(linkJson, Link::class.java)
-        try {
-            _handler.followLink(link) { response -> handleHaapiResponse(response, promise) }
-        } catch (e: Exception) {
-            Log.d(TAG, "Failed to navigate to link: ${e.message}")
-            rejectRequest(e, promise)
-        }
+
+        _handler.followLink(
+            link,
+            onSuccess = { response -> handleHaapiResponse(response, promise) },
+            onError = { e ->
+                Log.d(TAG, "Failed to navigate to link: ${e.message}")
+                rejectRequest(e, promise)
+            }
+        )
     }
 
     @ReactMethod
     fun submitForm(actionMap: ReadableMap, parameters: ReadableMap, promise: Promise) {
-
         val action = findAction(actionMap, _haapiResponse as HaapiRepresentation)
         if (action == null) {
             Log.d(TAG, "Failed to find action to submit. Possible re-submit")
             return
         }
-
         submitModel(action.model, parameters.toHashMap(), promise)
     }
 
@@ -188,15 +188,17 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) :
         promise: Promise
     ) {
         Log.d(TAG, "Submitting form $model")
-        try {
-            _handler.submitForm(model, parameters) { response ->
+        _handler.submitForm(
+            model,
+            parameters,
+            onSuccess = { response ->
                 handleHaapiResponse(response, promise)
+            },
+            onError = { e ->
+                Log.w(TAG, "Failed to submit form: ${e.message}")
+                rejectRequest(e, promise)
             }
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to submit form: ${e.message}")
-            rejectRequest(e, promise)
-        }
-
+        )
     }
 
     private fun handleCodeResponse(response: OAuthAuthorizationResponseStep, promise: Promise) {
