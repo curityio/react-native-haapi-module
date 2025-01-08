@@ -51,7 +51,8 @@ import se.curity.identityserver.haapi.android.sdk.models.oauth.TokenResponse
 
 const val TAG = "HaapiNative"
 
-class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(_reactContext),
+class HaapiModule(private val _reactContext: ReactApplicationContext) :
+    ReactContextBaseJavaModule(_reactContext),
     LifecycleEventListener {
 
     override fun getName() = "HaapiModule"
@@ -94,41 +95,50 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
     @ReactMethod
     fun start(promise: Promise) {
         Log.d(TAG, "Start was called")
-
-        try {
-            _handler.startAuthentication { response -> handleHaapiResponse(response, promise) }
-        } catch (e: Exception) {
-            Log.e(TAG, e.message ?: "Failed to attest $e")
-            rejectRequest(e, promise)
-        }
+        _handler.startAuthentication(
+            onSuccess = {response -> handleHaapiResponse(response, promise)},
+            onError = {e ->
+                Log.e(TAG, e.message ?: "Failed to attest $e")
+                rejectRequest(e, promise)
+            }
+        )
     }
 
     @ReactMethod
     fun logout(promise: Promise) {
         Log.d(TAG, "Logout was called, revoking tokens")
-
         if (_tokenResponse != null) {
-            _handler.logoutAndRevokeTokens(_tokenResponse!!.accessToken, _tokenResponse!!.refreshToken)
+            _handler.logoutAndRevokeTokens(
+                _tokenResponse!!.accessToken,
+                _tokenResponse!!.refreshToken,
+                onSuccess = {
+                    _tokenResponse = null
+                    resolveRequest(LoggedOut, "{}", promise)
+                },
+                onError = {e ->
+                    Log.w(TAG, "Failed to logout: ${e.message}")
+                    rejectRequest(e, promise)
+                }
+            )
         } else {
             _handler.closeHaapiConnection()
+            _tokenResponse = null
+            resolveRequest(LoggedOut, "{}", promise)
         }
-
-        _tokenResponse = null
-        resolveRequest(LoggedOut, "{}", promise)
     }
 
     @ReactMethod
     fun refreshAccessToken(refreshToken: String, promise: Promise) {
         Log.d(TAG, "Refreshing access token")
-
-        try {
-            _handler.refreshAccessToken(refreshToken) { tokenResponse ->
+        _handler.refreshAccessToken(
+            refreshToken,
+            onSuccess = { tokenResponse ->
                 handleTokenResponse(tokenResponse, promise)
+            },
+            onError = { e ->
+                rejectRequest(e, promise)
             }
-        } catch (e: Exception) {
-            Log.d(TAG, "Failed to revoke tokens: ${e.message}")
-            rejectRequest(e, promise)
-        }
+         )
     }
 
     @ReactMethod
@@ -172,7 +182,11 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
 
     }
 
-    private fun submitModel(model: FormActionModel, parameters: Map<String, Any>, promise: Promise) {
+    private fun submitModel(
+        model: FormActionModel,
+        parameters: Map<String, Any>,
+        promise: Promise
+    ) {
         Log.d(TAG, "Submitting form $model")
         try {
             _handler.submitForm(model, parameters) { response ->
@@ -186,15 +200,16 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
     }
 
     private fun handleCodeResponse(response: OAuthAuthorizationResponseStep, promise: Promise) {
-        try {
-            _handler.exchangeCode(response) { tokenResponse ->
+        _handler.exchangeCode(
+            response,
+            onSuccess = { tokenResponse ->
                 handleTokenResponse(tokenResponse, promise)
+            },
+            onError = { e ->
+                Log.w(TAG, "Failed to exchange code: ${e.message}")
+                rejectRequest(e, promise)
             }
-
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to exchange code: ${e.message}")
-            rejectRequest(e, promise)
-        }
+        )
     }
 
     private fun handleTokenResponse(tokenResponse: TokenResponse, promise: Promise) {
@@ -212,7 +227,8 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
         } else {
             tokenResponse as ErrorTokenResponse
             val errorResponseMap = mapOf(
-                "error" to tokenResponse.error, "error_description" to tokenResponse.errorDescription
+                "error" to tokenResponse.error,
+                "error_description" to tokenResponse.errorDescription
             )
             resolveRequest(TokenResponseError, JsonUtil.toJsonString(errorResponseMap), promise)
         }
@@ -241,9 +257,15 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) : ReactCon
                 _haapiResponse = response
 
                 when (response) {
-                    is WebAuthnRegistrationClientOperationStep -> handleWebAuthnRegistration(response, promise)
+                    is WebAuthnRegistrationClientOperationStep -> handleWebAuthnRegistration(
+                        response,
+                        promise
+                    )
 
-                    is WebAuthnAuthenticationClientOperationStep -> handleWebAuthnAuthentication(response, promise)
+                    is WebAuthnAuthenticationClientOperationStep -> handleWebAuthnAuthentication(
+                        response,
+                        promise
+                    )
 
                     is AuthenticatorSelectorStep -> resolveRequest(
                         AuthenticationSelectorStep, response.toJsonString(), promise
