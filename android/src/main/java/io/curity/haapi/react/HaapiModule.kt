@@ -65,8 +65,8 @@ class HaapiModule(private val _reactContext: ReactApplicationContext) :
     private val _webAuthnHandler = WebAuthnHandler(_reactContext)
 
     init {
-        HaapiLogger.enabled = true
-        HaapiLogger.isDebugEnabled = true
+        HaapiLogger.enabled = BuildConfig.DEBUG
+        HaapiLogger.isDebugEnabled = BuildConfig.DEBUG
         _reactContext.addLifecycleEventListener(this)
     }
 
