@@ -77,14 +77,28 @@ object HaapiConfigurationUtil {
     fun addFallbackConfiguration(accessorFactory: HaapiAccessorFactory, conf: Map<String, Any>, context: Context) {
         val registrationEndpoint = asOptionalUri(conf, "registrationEndpointUri") ?: return
         val fallbackTemplate = asStringOrThrow(conf, "fallback_template_id")
-        val registrationClientSecret = asStringOrThrow(conf, "registration_secret")
+        val clientAuthenticationMethod: ClientAuthenticationMethodConfiguration
+        if (conf["client_authentication_mtls"] as? Boolean? ?: false) {
+            val mtlsClientKeystore = asStringOrThrow(conf, "mtls_client_keystore")
+            val mtlsClientKeystorepassword = asStringOrThrow(conf, "mtls_client_keystore_password")
+            val mtlsServerTrustStore = asStringOrThrow(conf, "mtls_server_truststore")
+            clientAuthenticationMethod = ClientAuthenticationMethodConfiguration.Mtls(
+                clientKeyStore = mtlsClientKeystore,
+                clientKeyStorePassword = mtlsClientKeystorepassword,
+                serverTrustStore = mtlsServerTrustStore
+            )
+        } else {
+            val registrationClientSecret = asStringOrThrow(conf, "registration_secret")
+            clientAuthenticationMethod = ClientAuthenticationMethodConfiguration.Secret(
+                registrationClientSecret
+            )
+        }
+
         val dcrConfiguration =
             DcrConfiguration(fallbackTemplate, registrationEndpoint, context)
         accessorFactory.setDcrConfiguration(dcrConfiguration)
         accessorFactory.setClientAuthenticationMethodConfiguration(
-            ClientAuthenticationMethodConfiguration.Secret(
-                registrationClientSecret
-            )
+            clientAuthenticationMethod
         )
     }
 
